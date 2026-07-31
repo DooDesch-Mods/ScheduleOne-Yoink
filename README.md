@@ -55,6 +55,27 @@ Everything lives in `UserData/MelonPreferences.cfg` under `[Yoink]`:
 | `RopeCollision` | true | Rope slack rests on the ground instead of hanging through it. |
 | `ShopPrice` | 80 | What it costs on the shelf. Read once when the item is registered. |
 
+## When it will not move
+
+The mod says why in the console every time it refuses a hook: `nothing within Xm` (nothing hookable in
+range), `has no rigidbody` (scenery), `is fixed in place` (kinematic, and no winch moves a building).
+
+If it hooked but nothing happens, it is usually one of three things. Someone is sitting in the vehicle, in
+which case their machine owns it. Or it is wedged hard and wants a different hook point - aim at the corner
+that has somewhere to go. Or it is simply heavy: raise `PullNewtons`.
+
+`PullNewtons` and `MaxSpeed` do different jobs. The force decides whether a heavy thing moves at all; the
+speed caps how fast anything is allowed to arrive. Raising the force will not make a barrel come faster,
+because the speed ceiling binds first. Raising the speed will not free a stuck van.
+
+## Multiplayer
+
+Everyone needs the mod. The machine that owns an object applies the force to it, so a pull on a networked
+object goes through the host, and a pull on a vehicle someone is sitting in is handed to their machine -
+that is the only one whose forces the vehicle accepts. The rope is not networked and does not need to be.
+
+Co-op is implemented and reviewed but has not been run with two players since the physics rework.
+
 ## Requirements
 
 - [MelonLoader](https://melonloader.co/) 0.7.3 or newer
@@ -62,8 +83,7 @@ Everything lives in `UserData/MelonPreferences.cfg` under `[Yoink]`:
 
 ## Credits
 
-Built by DooDesch on [S1API](https://github.com/ifBars/S1API) by ifBars, with the winch modelled in
-[blender-agent-studio](https://github.com/ifBars/blender-agent-studio).
+Built by DooDesch on [S1API](https://github.com/ifBars/S1API) by ifBars.
 
 ## License
 
