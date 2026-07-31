@@ -87,7 +87,18 @@ namespace Yoink.Debugging
                         Say("vm show           - where the held winch sits");
                         Say("vm move x y z     - nudge it (metres), vm turn x y z - rotate it");
                         Say("cam             - cameras, layers and where the rope is anchored");
+                        Say("icon [path]     - write the in-game item icon to a PNG (listing art comes from here)");
                         break;
+
+                    case "icon":
+                    {
+                        // Default target is the repo's Thunderstore folder, so the shipped listing art and the
+                        // in-game item icon cannot be two different pictures of the same winch.
+                        string target = arg1 ?? System.IO.Path.Combine(
+                            System.IO.Directory.GetCurrentDirectory(), "yoink_icon.png");
+                        Say(Yoink.Item.IconRenderer.SaveToDisk(Yoink.Item.WinchItem.EnsureModelSource(), target));
+                        break;
+                    }
 
                     case "cam":
                         TestRig.DumpCamerasSoon();

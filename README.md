@@ -38,7 +38,7 @@ Everything lives in `UserData/MelonPreferences.cfg` under `[Yoink]`:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `PullNewtons` | 12000 | Pull force. Real mass applies - a loaded van moves slower than a bin. |
+| `PullNewtons` | 40000 | Pull force, about a four-tonne recovery winch. Real mass applies - a loaded van moves slower than a bin. |
 | `MaxSpeed` | 1.5 | How fast the hook point is reeled in, m/s. |
 | `HookRange` | 15 | How far the hook can be fired, metres. |
 | `BreakDistance` | 25 | The rope snaps past this, metres. |

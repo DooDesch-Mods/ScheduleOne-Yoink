@@ -21,10 +21,17 @@ namespace Yoink.Config
         private static MelonPreferences_Entry<float> _shopPrice;
         private static MelonPreferences_Entry<bool> _ropeCollision;
 
-        /// <summary>Nominal pull of the winch in newtons - the force that hauls a car out of a ditch.</summary>
+        /// <summary>
+        /// Nominal pull of the winch in newtons - the force that hauls a car out of a ditch.
+        ///
+        /// 40 kN is roughly a four-tonne recovery winch, which is the class of tool this is meant to be. The first
+        /// value here was 12 kN, and against a 1200 kg car that is 10 m/s^2 before any of it goes into rolling
+        /// resistance, suspension or the kerb it is sitting against - enough to shift a barrel and not enough to
+        /// feel like recovery gear. Light targets do not care what this says: their speed ceiling binds first.
+        /// </summary>
         internal static float PullNewtons
         {
-            get => _pullNewtons?.Value ?? 12000f;
+            get => _pullNewtons?.Value ?? 40000f;
             set { if (_pullNewtons != null) _pullNewtons.Value = value; }
         }
 
@@ -97,8 +104,8 @@ namespace Yoink.Config
         {
             _cat = MelonPreferences.CreateCategory("Yoink", "Yoink");
 
-            _pullNewtons = _cat.CreateEntry("PullNewtons", 12000f, "Pull force (N)",
-                "Nominal winch pull. Real mass applies, so a heavy vehicle moves slower than a bin.");
+            _pullNewtons = _cat.CreateEntry("PullNewtons", 40000f, "Pull force (N)",
+                "Nominal winch pull, about a four-tonne recovery winch. Real mass applies, so a loaded vehicle still moves slower than a bin.");
             _maxSpeed = _cat.CreateEntry("MaxSpeed", 1.5f, "Maximum winch speed (m/s)",
                 "How fast the winch reels the load in along the rope. Other motion (falling, being pushed out of a wall) is not capped.");
             _hookRange = _cat.CreateEntry("HookRange", 15f, "Hook range (m)",

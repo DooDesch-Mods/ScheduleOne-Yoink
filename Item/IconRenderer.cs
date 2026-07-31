@@ -113,6 +113,36 @@ namespace Yoink.Item
             }
         }
 
+#if DEBUG
+        /// <summary>
+        /// Writes the rendered icon to a PNG, so the listing art on Thunderstore and Nexus is the very same image
+        /// the game draws rather than a lookalike exported from Blender.
+        ///
+        /// Two pictures of one object drift apart the moment either is regenerated, and the icon is exactly the
+        /// thing nobody remembers to redo. This makes the shipped file a dump of the live one: re-export the model,
+        /// run the command, commit the result.
+        /// </summary>
+        internal static string SaveToDisk(GameObject model, string path)
+        {
+            try
+            {
+                Sprite s = Render(model);
+                if (s == null || s.texture == null) return "no icon to save - the render failed.";
+
+                byte[] png = UnityEngine.ImageConversion.EncodeToPNG(s.texture);
+                if (png == null || png.Length == 0) return "the icon could not be encoded.";
+
+                string dir = System.IO.Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(dir)) System.IO.Directory.CreateDirectory(dir);
+                System.IO.File.WriteAllBytes(path, png);
+
+                return "icon written to " + path + " (" + s.texture.width + "x" + s.texture.height
+                     + ", " + png.Length / 1024 + " KB)";
+            }
+            catch (Exception e) { return "saving the icon failed: " + e.Message; }
+        }
+#endif
+
         private static void AddLight(Transform parent, Quaternion rotation, float intensity)
         {
             var go = new GameObject("YoinkIconLight");

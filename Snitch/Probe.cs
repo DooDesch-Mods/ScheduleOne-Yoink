@@ -101,7 +101,7 @@ namespace Yoink.Profiling
 
             // ---- how it pulls -----------------------------------------------------------------------------
 
-            p.Slider("pull force", 0, 60000, () => Preferences.PullNewtons, v => Preferences.PullNewtons = (float)v, 500, "N");
+            p.Slider("pull force", 0, 120000, () => Preferences.PullNewtons, v => Preferences.PullNewtons = (float)v, 500, "N");
             p.Slider("max speed", 0.1, 12, () => Preferences.MaxSpeed, v => Preferences.MaxSpeed = (float)v, 0.25, "m/s");
             p.Slider("hook range", 2, 60, () => Preferences.HookRange, v => Preferences.HookRange = (float)v, 0.5, "m");
             p.Slider("break dist", 3, 80, () => Preferences.BreakDistance, v => Preferences.BreakDistance = (float)v, 0.5, "m");
