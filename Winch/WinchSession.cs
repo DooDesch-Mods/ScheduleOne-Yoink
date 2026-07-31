@@ -44,6 +44,78 @@ namespace Yoink.Winch
         /// </summary>
         internal static float ReelRate { get; private set; }
 
+        /// <summary>
+        /// The reel rate the sound should listen to: clamped, median-filtered and asymmetrically smoothed at
+        /// physics cadence.
+        ///
+        /// The raw dot product is not a measurement of a winch turning - it carries collision response, suspension
+        /// bounce, depenetration impulses and the mismatch between physics and render cadence. Feeding it straight
+        /// into a pitch every frame is what made the crank warble. The rise is quick (0.10 s) so breaking free is
+        /// heard immediately; the fall is slow (0.25 s) so a single ratchet gap or a kerb does not drop the sound
+        /// out mid-stroke.
+        /// </summary>
+        internal static float ReelRateSmoothed { get; private set; }
+
+        /// <summary>True while the winch is pulling hard at something that is not moving.</summary>
+        internal static bool Stalled { get; private set; }
+
+        /// <summary>
+        /// How fast rope is running OUT, in m/s - the hook is attached and the gap is growing, because the player
+        /// is walking away or the load is. A real ratchet winch clatters while it pays out, and silence there was
+        /// the giveaway that this was a sound effect bolted onto a pull rather than a mechanism.
+        /// </summary>
+        internal static float PayOutRate { get; private set; }
+
+        private static float _lastDistance = -1f;
+
+        private static readonly float[] _rateWindow = new float[3];
+        private static int _rateIndex;
+        private static float _lowRateTime;
+
+        private static void TrackRate(float rawAlongRope, bool demandingTension)
+        {
+            float dt = Time.fixedDeltaTime;
+            float clamped = Mathf.Max(rawAlongRope, 0f);
+
+            _rateWindow[_rateIndex % 3] = clamped;
+            _rateIndex++;
+            float median = Median(_rateWindow[0], _rateWindow[1], _rateWindow[2]);
+
+            float tau = median > ReelRateSmoothed ? 0.10f : 0.25f;
+            ReelRateSmoothed += (median - ReelRateSmoothed) * (1f - Mathf.Exp(-dt / tau));
+            ReelRate = clamped;
+
+            // Stalled is "asking for tension and getting no travel", held for a quarter second so a momentary
+            // catch on a kerb does not flip the sound into its strain state.
+            if (demandingTension && ReelRateSmoothed < 0.04f) _lowRateTime += dt;
+            else _lowRateTime = 0f;
+
+            Stalled = demandingTension && _lowRateTime >= 0.25f;
+        }
+
+        /// <summary>
+        /// Measures rope running out, smoothed the same way the reel rate is. Only the growing direction counts:
+        /// the shrinking one is what the pull already reports, and feeding both into one number would make the
+        /// winch clatter while it is hauling something in.
+        /// </summary>
+        private static void TrackPayOut(float distance, float dt)
+        {
+            if (_lastDistance < 0f) { _lastDistance = distance; return; }
+
+            float delta = (distance - _lastDistance) / Mathf.Max(dt, 0.0001f);
+            _lastDistance = distance;
+
+            float outward = Mathf.Max(delta, 0f);
+            float tau = outward > PayOutRate ? 0.08f : 0.20f;
+            PayOutRate += (outward - PayOutRate) * (1f - Mathf.Exp(-dt / tau));
+            if (PayOutRate < 0.01f) PayOutRate = 0f;
+        }
+
+        private static float Median(float a, float b, float c)
+        {
+            return Mathf.Max(Mathf.Min(a, b), Mathf.Min(Mathf.Max(a, b), c));
+        }
+
         /// <summary>Fires the hook where the player camera is looking.</summary>
         internal static bool HookFromCamera(out string message)
         {
@@ -190,6 +262,8 @@ namespace Yoink.Winch
             _pulling = false;
             _pullUntil = -1f;
             ReelRate = 0f;
+            Stalled = false;
+            _lowRateTime = 0f;
             if (!was) return;
 
             try
@@ -210,6 +284,8 @@ namespace Yoink.Winch
         internal static void Drop()
         {
             Stop();
+            PayOutRate = 0f;
+            _lastDistance = -1f;
             if (_target != null && _target.Vehicle != null) VehicleGrip.ReleaseShared(_target.Vehicle);
             _target = null;
             _holdPulling = false;
@@ -290,6 +366,8 @@ namespace Yoink.Winch
             }
 
             float dist = Distance();
+            TrackPayOut(dist, dt);
+
             if (dist > Preferences.BreakDistance)
             {
                 Core.Log.Msg("[Winch] rope snapped at " + dist.ToString("F1", CultureInfo.InvariantCulture) + "m.");
@@ -318,13 +396,26 @@ namespace Yoink.Winch
         /// <summary>Physics work: the pull, applied at the pivot so the load rotates as it comes free.</summary>
         internal static void FixedTick()
         {
-            if (!_pulling || _target == null || !_target.Alive) return;
-            if (_delegatedToHost || _delegatedToDriver) return;   // somebody else's machine owns this force
+            if (!_pulling || _target == null || !_target.Alive)
+            {
+                if (ReelRateSmoothed > 0f || Stalled) TrackRate(0f, false);
+                return;
+            }
 
             Rigidbody rb = _target.Rb;
+
+            // Measure even when the force belongs to another machine. The load still moves here, and audio that
+            // went silent on a client's screen while a car visibly slid toward them would be a worse lie than a
+            // slightly late one.
+            if (_delegatedToHost || _delegatedToDriver)
+            {
+                MeasureOnly(rb);
+                return;
+            }
+
             float dist, along;
             bool applied = PullPhysics.Apply(rb, _target.PivotWorld, _pullAnchor, out dist, out along);
-            ReelRate = Mathf.Max(along, 0f);
+            TrackRate(along, dist > Preferences.StopDistance);
 
             if (!applied && dist > 0f && dist <= Preferences.StopDistance)
             {
@@ -350,6 +441,19 @@ namespace Yoink.Winch
             Trace("dist=" + dist.ToString("F2", CultureInfo.InvariantCulture)
                 + " along=" + along.ToString("F2", CultureInfo.InvariantCulture)
                 + (applied ? "" : " (at cap, coasting)"));
+        }
+
+        /// <summary>Tracks the rate without applying force - used when another machine owns the pull.</summary>
+        private static void MeasureOnly(Rigidbody rb)
+        {
+            try
+            {
+                Vector3 toAnchor = _pullAnchor - _target.PivotWorld;
+                float dist = toAnchor.magnitude;
+                float along = dist > 0.001f ? Vector3.Dot(rb.velocity, toAnchor / dist) : 0f;
+                TrackRate(along, dist > Preferences.StopDistance);
+            }
+            catch { }
         }
 
         internal static void Reset()

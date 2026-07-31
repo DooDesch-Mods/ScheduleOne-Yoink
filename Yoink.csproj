@@ -114,6 +114,11 @@
       <HintPath>$(GameManagedPath)/UnityEngine.AIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- ImageConversion: decodes the PNG embedded in the model's GLB into a Texture2D at runtime. -->
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(GameManagedPath)/UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <!-- AudioClip / AudioSource: the winch crank is decoded from an embedded WAV at runtime. -->
     <Reference Include="UnityEngine.AudioModule">
       <HintPath>$(GameManagedPath)/UnityEngine.AudioModule.dll</HintPath>

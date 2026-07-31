@@ -51,6 +51,7 @@ namespace Yoink.Assets
                     return null;
                 }
 
+                _textures = ReadTextures(json, bin);
                 var materials = ReadMaterials(json["materials"] as JArray);
 
                 var root = new GameObject(name);
@@ -209,6 +210,17 @@ namespace Yoink.Assets
                     ? ReadColours(accessors, views, buffers, (int)attributes["COLOR_0"])
                     : null;
 
+                // A textured model paints itself through its UVs, so the colour split is not just unnecessary
+                // there - it would shatter one textured mesh into a dozen submeshes for nothing.
+                int materialIndex = prim["material"] != null ? (int)prim["material"] : -1;
+                bool textured = materialIndex >= 0 && materialIndex < materials.Count
+                                && materials[materialIndex] != null && materials[materialIndex].mainTexture != null;
+                if (textured) colours = null;
+
+                Vector2[] uvs = textured && attributes["TEXCOORD_0"] != null
+                    ? ReadVector2(accessors, views, buffers, (int)attributes["TEXCOORD_0"])
+                    : null;
+
                 // Negating Z mirrors the mesh, which reverses face winding - swap two corners of every triangle
                 // back so the surfaces face outwards again.
                 for (int i = 0; i + 2 < indices.Length; i += 3)
@@ -222,6 +234,7 @@ namespace Yoink.Assets
                 unityMesh.SetVertices(ToIl2Cpp(positions));
                 if (normals != null && normals.Length == positions.Length) unityMesh.SetNormals(ToIl2Cpp(normals));
                 if (normals == null || normals.Length != positions.Length) unityMesh.RecalculateNormals();
+                if (uvs != null && uvs.Length == positions.Length) unityMesh.SetUVs(0, ToIl2Cpp(uvs));
 
                 var go = new GameObject(name + "_" + p);
                 go.transform.SetParent(parent, false);
@@ -243,7 +256,6 @@ namespace Yoink.Assets
                 else
                 {
                     unityMesh.SetTriangles(ToIl2CppInt(indices), 0);
-                    int materialIndex = prim["material"] != null ? (int)prim["material"] : -1;
                     renderer.material = materialIndex >= 0 && materialIndex < materials.Count
                         ? materials[materialIndex]
                         : FallbackMaterial();
@@ -390,6 +402,28 @@ namespace Yoink.Assets
             return result;
         }
 
+        private static Vector2[] ReadVector2(JArray accessors, JArray views, List<byte[]> buffers, int index)
+        {
+            var accessor = accessors[index] as JObject;
+            if (accessor == null) return null;
+            if ((string)accessor["type"] != "VEC2") return null;
+            if ((int)accessor["componentType"] != 5126) return null;   // FLOAT
+
+            int count = (int)accessor["count"];
+            byte[] data;
+            int start, stride;
+            if (!TryResolve(accessor, views, buffers, out data, out start, out stride, 8)) return null;
+
+            var result = new Vector2[count];
+            for (int i = 0; i < count; i++)
+            {
+                int o = start + i * stride;
+                // glTF puts UV origin top-left, Unity bottom-left.
+                result[i] = new Vector2(BitConverter.ToSingle(data, o), 1f - BitConverter.ToSingle(data, o + 4));
+            }
+            return result;
+        }
+
         private static int[] ReadIndices(JArray accessors, JArray views, List<byte[]> buffers, int index)
         {
             var accessor = accessors[index] as JObject;
@@ -437,6 +471,72 @@ namespace Yoink.Assets
 
         // ---- materials ------------------------------------------------------------------------------------
 
+        private static List<Texture2D> _textures = new List<Texture2D>();
+
+        /// <summary>
+        /// Decodes the images the file carries. Only embedded ones: a GLB that references an external PNG has
+        /// already lost the argument for shipping as a single file, which is the whole reason the model is
+        /// embedded in the DLL.
+        /// </summary>
+        private static List<Texture2D> ReadTextures(JObject json, byte[] bin)
+        {
+            var result = new List<Texture2D>();
+
+            try
+            {
+                var images = json["images"] as JArray;
+                var views = json["bufferViews"] as JArray;
+                if (images == null || views == null) return result;
+
+                for (int i = 0; i < images.Count; i++)
+                {
+                    var image = images[i] as JObject;
+                    if (image == null || image["bufferView"] == null) { result.Add(null); continue; }
+
+                    var view = views[(int)image["bufferView"]] as JObject;
+                    if (view == null) { result.Add(null); continue; }
+
+                    int offset = view["byteOffset"] != null ? (int)view["byteOffset"] : 0;
+                    int length = (int)view["byteLength"];
+
+                    var bytes = new byte[length];
+                    Buffer.BlockCopy(bin, offset, bytes, 0, length);
+
+                    var tex = new Texture2D(2, 2, TextureFormat.RGBA32, true);
+                    if (!ImageConversion.LoadImage(tex, (Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<byte>)bytes, false))
+                    {
+                        result.Add(null);
+                        continue;
+                    }
+
+                    // Point filtering: this is a hand-drawn low-poly atlas held 30 cm from the camera, and
+                    // bilinear smearing of a hard-edged texture is what makes stylised art look muddy.
+                    tex.filterMode = FilterMode.Point;
+                    tex.wrapMode = TextureWrapMode.Clamp;
+                    tex.hideFlags |= HideFlags.DontUnloadUnusedAsset;
+                    result.Add(tex);
+                }
+            }
+            catch (Exception e) { Core.Log.Warning("[Glb] texture decode failed: " + e.Message); }
+
+            return result;
+        }
+
+        /// <summary>The texture a material paints with, or null when it is a flat-colour material.</summary>
+        private static Texture2D TextureFor(JObject material)
+        {
+            try
+            {
+                var pbr = material?["pbrMetallicRoughness"] as JObject;
+                var baseColor = pbr?["baseColorTexture"] as JObject;
+                if (baseColor == null || baseColor["index"] == null) return null;
+
+                int index = (int)baseColor["index"];
+                return index >= 0 && index < _textures.Count ? _textures[index] : null;
+            }
+            catch { return null; }
+        }
+
         private static List<Material> ReadMaterials(JArray materials)
         {
             var result = new List<Material>();
@@ -455,6 +555,16 @@ namespace Yoink.Assets
                                           factor.Count > 3 ? (float)factor[3] : 1f);
 
                 SetColor(mat, baseColor);
+
+                // A textured material paints itself. The base colour factor stays as a tint, so it must be white
+                // here or the texture comes out darkened by it.
+                Texture2D tex = TextureFor(m);
+                if (tex != null)
+                {
+                    mat.mainTexture = tex;
+                    try { mat.SetTexture("_BaseMap", tex); } catch { }
+                    SetColor(mat, Color.white);
+                }
 
                 // Emissive parts (the light strip) get their glow carried over, otherwise they read as flat
                 // grey panels rather than as lights.
@@ -522,6 +632,13 @@ namespace Yoink.Assets
             var arr = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<Material>(values.Length);
             for (int i = 0; i < values.Length; i++) arr[i] = values[i];
             return arr;
+        }
+
+        private static Il2CppSystem.Collections.Generic.List<Vector2> ToIl2Cpp(Vector2[] values)
+        {
+            var list = new Il2CppSystem.Collections.Generic.List<Vector2>(values.Length);
+            for (int i = 0; i < values.Length; i++) list.Add(values[i]);
+            return list;
         }
 
         private static Il2CppSystem.Collections.Generic.List<Vector3> ToIl2Cpp(Vector3[] values)

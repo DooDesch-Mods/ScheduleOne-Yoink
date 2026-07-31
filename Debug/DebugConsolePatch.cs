@@ -32,7 +32,7 @@ namespace Yoink.Debugging
         internal const string Usage =
             "yoink help, yoink hook, yoink nearest 8, yoink pull 3, yoink stop, yoink drop, yoink info, " +
             "yoink give, yoink equip, yoink force 12000, yoink set pull 12000, yoink set vmax 1.5, yoink test 8, " +
-            "yoink vm pos 0.22 -0.2 0.36";
+            "yoink vm show, yoink vm move 0 0 -0.02, yoink vm turn 0 15 0";
 
         private static readonly List<string> _pending = new List<string>();
 
@@ -84,7 +84,8 @@ namespace Yoink.Debugging
                         Say("force <newtons> - change pull force at runtime");
                         Say("set <key> <val> - pull | amin | vmax | range | break | stop");
                         Say("test [distance] - spawn a test vehicle N metres ahead");
-                        Say("vm <pos|rot> x y z - move the held model while tuning it");
+                        Say("vm show           - where the held winch sits");
+                        Say("vm move x y z     - nudge it (metres), vm turn x y z - rotate it");
                         break;
 
                     case "hook":
@@ -192,6 +193,28 @@ namespace Yoink.Debugging
                         string what = arg1 != null ? arg1.ToLower() : string.Empty;
                         float s;
 
+                        if (what == "show" || what.Length == 0)
+                        {
+                            Say(Yoink.Item.WinchItem.DescribeHold());
+                            Say("nudge it: yoink vm move <x> <y> <z>   turn it: yoink vm turn <x> <y> <z>");
+                            break;
+                        }
+
+                        // Relative steps, because dialling a hold position in absolute numbers means guessing the
+                        // starting point every time. Type 'yoink vm move 0 0 -0.02' and watch it move 2 cm back.
+                        float dx, dy, dz;
+                        if ((what == "move" || what == "turn") && parts.Length >= 6
+                            && float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out dx)
+                            && float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out dy)
+                            && float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out dz))
+                        {
+                            if (what == "move") Yoink.Item.WinchItem.HeldPosition = Yoink.Item.WinchItem.HeldPosition + new Vector3(dx, dy, dz);
+                            else Yoink.Item.WinchItem.HeldRotation = Yoink.Item.WinchItem.HeldRotation + new Vector3(dx, dy, dz);
+
+                            Say(Yoink.Item.WinchItem.DescribeHold());
+                            break;
+                        }
+
                         if (what == "hand" && parts.Length >= 4)
                         {
                             Yoink.Item.WinchItem.PreferHand = parts[3].ToLower() == "on";
@@ -213,6 +236,7 @@ namespace Yoink.Debugging
                         {
                             Yoink.Item.WinchItem.ViewmodelScale = s;
                             Yoink.Item.WinchItem.HandScale = s;
+                            Yoink.Item.WinchItem.HeldScale = s;
                             Yoink.Item.WinchItem.RefreshViewmodel();
                             Say(ViewmodelState());
                             break;
@@ -225,8 +249,8 @@ namespace Yoink.Debugging
                             && float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out z))
                         {
                             if (what == "muzzle") Yoink.Item.WinchItem.MuzzleOverride = new Vector3(x, y, z);
-                            else if (what == "pos") { Yoink.Item.WinchItem.ViewmodelPosition = new Vector3(x, y, z); Yoink.Item.WinchItem.HandPosition = new Vector3(x, y, z); }
-                            else { Yoink.Item.WinchItem.ViewmodelRotation = new Vector3(x, y, z); Yoink.Item.WinchItem.HandRotation = new Vector3(x, y, z); }
+                            else if (what == "pos") { Yoink.Item.WinchItem.ViewmodelPosition = new Vector3(x, y, z); Yoink.Item.WinchItem.HandPosition = new Vector3(x, y, z); Yoink.Item.WinchItem.HeldPosition = new Vector3(x, y, z); }
+                            else { Yoink.Item.WinchItem.ViewmodelRotation = new Vector3(x, y, z); Yoink.Item.WinchItem.HandRotation = new Vector3(x, y, z); Yoink.Item.WinchItem.HeldRotation = new Vector3(x, y, z); }
 
                             Yoink.Item.WinchItem.RefreshViewmodel();
                             Say(ViewmodelState());

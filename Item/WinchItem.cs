@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Il2CppScheduleOne;                        // GameInput
 using Il2CppScheduleOne.ItemFramework;          // ItemInstance
 using Yoink.Winch;
@@ -104,7 +105,7 @@ namespace Yoink.Item
         /// Equippable_AvatarViewmodel, which our item never gets because it runs on the new equipping framework
         /// (Player.Local.Equip -> EquippedItemHandler), not the legacy path that would instantiate ours.
         /// </summary>
-        internal static bool PreferHand;
+        internal static bool PreferHand = false;
 
         /// <summary>Placement relative to the right hand bone, used only when <see cref="PreferHand"/> is on.</summary>
         internal static Vector3 HandPosition = new Vector3(0f, 0f, 0f);
@@ -283,9 +284,15 @@ namespace Yoink.Item
                 Transform model = HeldModel();
                 if (model == null) return false;
 
-                world = MuzzleOverride != Vector3.zero
-                    ? model.TransformPoint(MuzzleOverride)
-                    : MeasuredMuzzle(model);
+                if (MuzzleOverride != Vector3.zero)
+                {
+                    world = model.TransformPoint(MuzzleOverride);
+                    return true;
+                }
+
+                if (TryMeasureMuzzle(out world)) return true;
+
+                world = MeasuredMuzzle(model);
                 return true;
             }
             catch { return false; }
@@ -327,6 +334,82 @@ namespace Yoink.Item
         private static Transform _heldModel;
 
         /// <summary>
+        /// Where the cable actually leaves the tool, in the model's own space.
+        ///
+        /// Derived from the Hook mesh's bounds rather than from a hand-tuned constant, because a constant is only
+        /// true for the geometry it was tuned against - re-export the model and the rope starts in mid-air, which
+        /// has already happened twice here. But NOT the hook's centre: the hook hangs down and back from the cable
+        /// exit, and its centroid measures 7.3 cm away from it. The exit is the top of the front face, which is
+        /// where the mesh's own ring of attachment vertices sits.
+        ///
+        /// Measured against the current model, that lands within ~5 mm of the exact ring centre at
+        /// (0, 0.120, -0.350) - close enough that nobody will see the difference, and it survives a re-export.
+        /// </summary>
+        /// <summary>
+        /// Writes the current hold offsets onto the model that is actually in hand, every frame.
+        ///
+        /// Without this, tuning the numbers did nothing visible: on the equippable path the model lives inside a
+        /// clone the GAME instantiated from our template, so changing the template's values only takes effect the
+        /// next time the item is equipped. Pushing them onto the live object makes 'yoink vm' immediate, which is
+        /// the difference between dialling a position in and rebuilding for every centimetre.
+        /// </summary>
+        private static void ApplyHeldTransform()
+        {
+            try
+            {
+                Transform model = HeldModel();
+                if (model == null) return;
+
+                model.localPosition = HeldPosition;
+                model.localRotation = Quaternion.Euler(HeldRotation);
+                model.localScale = Vector3.one * HeldScale;
+            }
+            catch { }
+        }
+
+        /// <summary>One line describing where the held model currently sits, for the console.</summary>
+        internal static string DescribeHold()
+        {
+            var inv = CultureInfo.InvariantCulture;
+            return "hold pos=" + HeldPosition.ToString("F3")
+                 + " rot=" + HeldRotation.ToString("F0")
+                 + " scale=" + HeldScale.ToString("F2", inv)
+                 + " grip=" + GripLocal.ToString("F3")
+                 + (HeldModel() != null ? " [live]" : " [not held]");
+        }
+
+        private static bool TryMeasureMuzzle(out Vector3 world)
+        {
+            world = Vector3.zero;
+            Transform model = HeldModel();
+            if (model == null) return false;
+
+            try
+            {
+                MeshFilter hookMesh = null;
+
+                for (int i = 0; i < model.childCount && hookMesh == null; i++)
+                {
+                    Transform child = model.GetChild(i);
+                    if (child.name.IndexOf("hook", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    hookMesh = child.GetComponentInChildren<MeshFilter>(true);
+                }
+
+                if (hookMesh == null || hookMesh.sharedMesh == null) return false;
+
+                // Mesh bounds live in the MESH's own space, and the reader puts each mesh under a node object -
+                // so the point has to be transformed by the mesh's transform, not by the model root. Using the
+                // root is what threw the rope sideways: any offset between node and mesh became an error in the
+                // rope's start, and it looked like the cable was leaving somewhere off to the left.
+                Bounds b = hookMesh.sharedMesh.bounds;
+                Vector3 local = new Vector3(b.center.x, b.max.y, b.min.z);
+                world = hookMesh.transform.TransformPoint(local);
+                return true;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
         /// The model actually being rendered in hand. On the equippable path that is a child of the clone the game
         /// instantiated, not anything we hold a reference to, so it is looked up through PlayerInventory - which
         /// finally reports an equippable now that the definition uses the legacy equip mode.
@@ -350,7 +433,10 @@ namespace Yoink.Item
         }
 
         /// <summary>Drops the cached lookup when the held item changes.</summary>
-        internal static void ForgetHeldModel() => _heldModel = null;
+        internal static void ForgetHeldModel()
+        {
+            _heldModel = null;
+        }
 
         private static GameObject _modelSource;      // parsed once, kept inactive as the thing we copy from
         private static GameObject _modelInstance;    // the copy currently hanging under the live viewmodel
@@ -462,10 +548,41 @@ namespace Yoink.Item
             }
         }
 
+        /// <summary>
+        /// The centre of the pistol grip in the model's own space, measured from the mesh (the volume centroid of
+        /// the grip solid, after the reader's Z mirror). The model has to be shifted so THIS point lands on the
+        /// hand, not its origin - with the origin on the hand the tool hung in front of the fingers instead of in
+        /// them, which is exactly what it looked like.
+        /// </summary>
+        internal static Vector3 GripLocal = new Vector3(0f, -0.010f, -0.066f);
+
         /// <summary>Placement of the model inside the equippable template, relative to the hand.</summary>
-        internal static Vector3 HeldPosition = new Vector3(0f, 0f, 0f);
         internal static Vector3 HeldRotation = new Vector3(0f, 180f, 0f);
         internal static float HeldScale = 1f;
+
+        private static bool _heldPositionOverridden;
+        private static Vector3 _heldPosition;
+
+        /// <summary>
+        /// Where the model sits relative to the hand: far enough back that the grip is in the palm. Computed from
+        /// the grip point and the model's own rotation rather than typed in, so changing the rotation cannot
+        /// silently push the tool out of the hand again.
+        /// </summary>
+        internal static Vector3 HeldPosition
+        {
+            get => _heldPositionOverridden ? _heldPosition : -(Quaternion.Euler(HeldRotation) * GripLocal) + HeldOffset;
+            set { _heldPosition = value; _heldPositionOverridden = true; }
+        }
+
+        /// <summary>
+        /// Hand-dialled correction on top of the computed grip alignment, settled in game with 'yoink vm move'.
+        ///
+        /// The computed position puts the grip's centroid on the hand bone, which is geometrically right and still
+        /// sat 8 cm too far forward - a real hand wraps behind the grip's centre, not through it, and the bone's
+        /// pivot is at the wrist. Keeping the two apart matters: the computed part follows the model and its
+        /// rotation, this part is taste, and mixing them would make a re-export silently undo the tuning.
+        /// </summary>
+        internal static Vector3 HeldOffset = new Vector3(0f, 0f, -0.08f);
 
         /// <summary>Same reader, for the audio side.</summary>
         internal static byte[] ReadEmbeddedPublic(string resource) => ReadEmbedded(resource);
@@ -528,13 +645,19 @@ namespace Yoink.Item
             _wasEquipped = equipped;
 
             WinchAim.Tick(equipped, WinchSession.Hooked);
-            Audio.WinchSound.Tick(equipped && WinchSession.Pulling, WinchSession.ReelRate, Config.Preferences.MaxSpeed);
+            Audio.WinchSound.Tick(equipped && WinchSession.Pulling, WinchSession.ReelRateSmoothed,
+                                  Config.Preferences.MaxSpeed, WinchSession.Stalled,
+                                  equipped && WinchSession.Hooked ? WinchSession.PayOutRate : 0f);
+
+            Vector3 muzzle;
+            if (TryGetMuzzle(out muzzle)) Audio.WinchSound.FollowMuzzle(muzzle);
 
             if (!equipped) return;
 
             // Preferred path: the game holds the winch itself, using a template we handed it (WinchEquippable).
             // The loose model in the equip container is only the fallback for when that could not be installed.
             WinchEquippable.EnsureInstalled(EnsureModelSource());
+            ApplyHeldTransform();
             if (!WinchEquippable.Ready)
             {
                 EnsureViewmodel();
