@@ -99,9 +99,15 @@ namespace Yoink.Rope
             // The rope follows the gap between its ends in BOTH directions. An earlier version only ever let the
             // length grow (Max against the current length), which looked fine while walking away and broke on the
             // way back: the rope kept its full length, so all the new slack piled up as sag and the middle sank
-            // through the floor. Reeling pulls it nearly straight; idle keeps a modest, honest amount of slack.
-            float wanted = direct * (taut ? 1.01f : 1.12f);
-            _restLength = Mathf.Lerp(_restLength, wanted, taut ? 0.25f : 0.1f);
+            // through the floor. Reeling pulls it straight; idle keeps a modest, honest amount of slack.
+            //
+            // Under tension the rest length is SHORTER than the gap, not a hair longer. "A hair longer" was 1.01,
+            // and a percent of slack is not a small amount of sag: a catenary droops by roughly 6% of its span for
+            // 1% of excess length, so a 5 m line under full pull still dipped about 30 cm and read as limp while
+            // the load was visibly being dragged. Below 1.0 every segment constraint is in tension and pulls the
+            // points onto the straight line, which is what a loaded cable actually does.
+            float wanted = direct * (taut ? 0.995f : 1.12f);
+            _restLength = Mathf.Lerp(_restLength, wanted, taut ? 0.4f : 0.1f);
 
             float segLen = _restLength / (_count - 1);
             Vector3 gravityStep = new Vector3(0f, Gravity * dt * dt, 0f);
