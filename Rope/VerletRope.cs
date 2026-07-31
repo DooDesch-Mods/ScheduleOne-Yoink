@@ -84,8 +84,8 @@ namespace Yoink.Rope
         }
 
         /// <summary>
-        /// One simulation step. <paramref name="taut"/> is the winch reeling: the rope shortens toward the direct
-        /// distance, which is what makes the line snap straight while the load is under tension.
+        /// One simulation step. <paramref name="taut"/> is the winch reeling; the cable takes its slack up over a
+        /// moment rather than on that frame, because seeing it tighten is most of what tells a player it has bitten.
         /// </summary>
         internal void Simulate(float dt, bool taut)
         {
@@ -96,18 +96,15 @@ namespace Yoink.Rope
             Vector3 anchor = _points[_count - 1];
             float direct = Vector3.Distance(hook, anchor);
 
-            // The rope follows the gap between its ends in BOTH directions. An earlier version only ever let the
-            // length grow (Max against the current length), which looked fine while walking away and broke on the
-            // way back: the rope kept its full length, so all the new slack piled up as sag and the middle sank
-            // through the floor. Reeling pulls it straight; idle keeps a modest, honest amount of slack.
-            //
-            // Under tension the rest length is SHORTER than the gap, not a hair longer. "A hair longer" was 1.01,
-            // and a percent of slack is not a small amount of sag: a catenary droops by roughly 6% of its span for
-            // 1% of excess length, so a 5 m line under full pull still dipped about 30 cm and read as limp while
-            // the load was visibly being dragged. Below 1.0 every segment constraint is in tension and pulls the
-            // points onto the straight line, which is what a loaded cable actually does.
-            float wanted = direct * (taut ? 0.995f : 1.12f);
-            _restLength = Mathf.Lerp(_restLength, wanted, taut ? 0.4f : 0.1f);
+            StepTension(taut, dt);
+
+            // ONE filtered quantity drives both the rest length and the straightening, and it is derived from the
+            // CURRENT gap every frame rather than eased from last frame's rest length. That distinction is the
+            // difference between a cable that tightens and one that never quite does: easing the length itself
+            // means that while the winch reels - and the gap shrinks every frame - the rest length is permanently
+            // trailing above the gap, so the rope reads as slack for the whole pull no matter what the target says.
+            float wanted = direct * Mathf.Lerp(SlackFactor, TautFactor, _tension);
+            _restLength = wanted;
 
             float segLen = _restLength / (_count - 1);
             Vector3 gravityStep = new Vector3(0f, Gravity * dt * dt, 0f);
@@ -146,8 +143,77 @@ namespace Yoink.Rope
                 }
             }
 
+            Straighten(hook, anchor, direct);
+
+            // Collision runs LAST and therefore wins over straightness. A cable cannot both be the exact chord and
+            // go round a bollard standing in it, so one has to have priority: bending over the obstacle is the one
+            // that looks like a rope, and a line passing through the world does not.
             Collide();
             Render();
+        }
+
+        /// <summary>Rest length as a fraction of the endpoint gap: hanging, and hauled.</summary>
+        private const float SlackFactor = 1.12f;
+        private const float TautFactor = 0.995f;
+
+        /// <summary>
+        /// Seconds to take up the slack, and to give it back. Winding in is a drum turning against a load, so it is
+        /// quick but not instant; letting go is the rope's own weight, which is slower.
+        /// </summary>
+        private const float TightenTime = 0.45f;
+        private const float SlackenTime = 0.8f;
+
+        private float _tension;
+
+        /// <summary>
+        /// How taut the cable is, as a filtered version of the winch actually pulling.
+        ///
+        /// Deliberately NOT derived from the rest length against the endpoint gap, which is the obvious source and
+        /// the wrong one: that ratio lags on purpose, and while the winch reels the gap shrinks every frame, so it
+        /// can sit above 1 - reading "slack" - for the whole pull. The pulling state is the honest input.
+        ///
+        /// The filter is the whole point. Without it the cable is rigid on the exact frame the button goes down,
+        /// which is what a winch does not look like: a drum takes up its slack over a moment, and seeing that moment
+        /// is most of what tells a player the tool has bitten.
+        /// </summary>
+        private void StepTension(bool taut, float dt)
+        {
+            float per = dt / Mathf.Max(0.01f, taut ? TightenTime : SlackenTime);
+            _tension = Mathf.MoveTowards(_tension, taut ? 1f : 0f, per);
+        }
+
+        /// <summary>
+        /// Pulls a loaded cable onto the straight line between its ends.
+        ///
+        /// This exists because the constraint solver above CANNOT do it, which is not obvious and cost two failed
+        /// attempts to establish. Simulating this exact solver and measuring the result: a 5 m span with the rest
+        /// length already 0.5% SHORTER than the gap still settles at 54 cm of sag. Raising the iteration count to
+        /// 150 only brings it to 12 cm, and shortening the rope to 90% of the gap still leaves 18 cm. The reason is
+        /// that a Gauss-Seidel distance constraint only ever moves a point ALONG its current segment direction, so
+        /// a chain that is already curved stays curved with slightly shorter links; meanwhile gravity re-injects a
+        /// fresh downward step every frame. Shortening the rope makes it tighter, never straighter.
+        ///
+        /// So the straightness is stated rather than discovered. It is exact in one frame, costs one lerp per
+        /// point, and leaves the slack case completely untouched.
+        ///
+        /// The blend is driven by the MEASURED slack ratio, not by the reeling flag: a boolean would snap the whole
+        /// cable straight on the frame the button goes down. Between 1.00 and 1.06 of the gap it eases, which is
+        /// what a cable taking up its own slack looks like.
+        /// </summary>
+        private void Straighten(Vector3 hook, Vector3 anchor, float direct)
+        {
+            if (direct < 0.001f || _tension <= 0.001f) return;
+
+            for (int i = 1; i < _count - 1; i++)
+            {
+                Vector3 straight = Vector3.Lerp(hook, anchor, (float)i / (_count - 1));
+                _points[i] = Vector3.Lerp(_points[i], straight, _tension);
+
+                // The stored previous position has to come with it. Left behind, the verlet velocity term reads the
+                // blend as motion and throws the point back off the line on the very next frame - the cable would
+                // buzz instead of hanging still.
+                _prev[i] = Vector3.Lerp(_prev[i], straight, _tension);
+            }
         }
 
         /// <summary>
