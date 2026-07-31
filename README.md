@@ -62,9 +62,9 @@ Everything lives in `UserData/MelonPreferences.cfg` under `[Yoink]`:
 
 ## Credits
 
-Winch model and texture authored in Blender with [blender-agent-studio](https://github.com/ifBars/blender-agent-studio)
-by ifBars.
+Built by DooDesch on [S1API](https://github.com/ifBars/S1API) by ifBars, with the winch modelled in
+[blender-agent-studio](https://github.com/ifBars/blender-agent-studio).
 
-## Licence
+## License
 
 MIT. See [LICENSE.md](LICENSE.md).
