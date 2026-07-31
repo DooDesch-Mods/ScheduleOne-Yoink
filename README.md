@@ -86,7 +86,7 @@ Co-op is implemented and reviewed but has not been run with two players since th
 
 ## Requirements
 
-- [MelonLoader](https://melonloader.co/) 0.7.3 or newer
+- [MelonLoader](https://melonwiki.xyz/) 0.7.3 or newer
 - [S1API](https://thunderstore.io/c/schedule-i/p/KaBooMa/S1API/)
 
 ## Credits
