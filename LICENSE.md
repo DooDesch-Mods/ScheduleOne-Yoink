@@ -19,3 +19,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+Credits
+
+The winch sound effect was made by **fadestyle**. Model, code and design by DooDesch.
+
+Third-party components
+
+* S1API (MIT) - the modding API this mod is written against.
+* Newtonsoft.Json - ships with MelonLoader; used by the GLB reader.

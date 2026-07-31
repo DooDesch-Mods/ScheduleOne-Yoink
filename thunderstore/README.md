@@ -84,6 +84,7 @@ Co-op is implemented and reviewed but has not been run with two players since th
 ## Credits
 
 Built by DooDesch on [S1API](https://github.com/ifBars/S1API) by ifBars.
+Winch sound effect by **fadestyle**.
 
 ## License
 
