@@ -11,22 +11,30 @@
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
 ![Status](https://img.shields.io/badge/status-beta-yellow)
 
+![Yoink in action: a car hauled in on the winch cable](https://raw.githubusercontent.com/DooDesch-Mods/ScheduleOne-Yoink/main/media/yoink.gif)
+
+*Hook the car, hold right click, walk backwards. The cable tightens as the winch takes the load.*
+
 ## What it does
 
-- **Hooks the exact point you aimed at.** Not the object's centre - the spot under your crosshair. Pull a
-  van by its rear corner and it swings round; pull it by the nose and it comes at you straight.
-- **Reels anything with a rigidbody.** Vehicles, barrels, crates, litter. A parked car has its handbrake
-  released first, because the game leaves it permanently applied on anything nobody is driving - without
-  that, no amount of force moves it a centimetre.
-- **A real rope.** A verlet-simulated cable that sags under its own weight, rests on the ground instead of
-  hanging through it, and snaps if you walk too far.
-- **Co-op.** The host owns the physics; a client's pull travels as an intent. If someone is sitting in the
-  vehicle you hooked, their client applies the force, because that is who owns it.
+The hook bites the spot under your crosshair, not the object's centre. Pull a van by its rear corner and it
+swings round; pull it by the nose and it comes at you straight. On something wedged, that choice is usually
+the difference between freeing it and grinding it further in.
+
+It reels anything with a rigidbody: vehicles, barrels, crates, litter. A parked car gets its handbrake
+released first, because the game leaves it permanently applied on anything nobody is driving, and without
+that no amount of force moves it a centimetre.
+
+The cable is simulated rather than drawn. It sags under its own weight, rests on the ground instead of
+hanging through it, takes about half a second to tighten when the winch bites, and snaps if you walk too far.
+
+Co-op works. The host owns the physics and a client's pull travels as an intent, and if someone is sitting in
+the vehicle you hooked, their machine applies the force, because that is who owns it.
 
 ## How to use it
 
-1. Buy the **Winch** in the hardware store ($80 by default).
-2. Equip it. **Left click** fires the hook at whatever you are looking at, and clicking again lets go.
+1. Buy the Winch in the hardware store ($80 by default).
+2. Equip it. **Left click** fires the hook at whatever you are looking at; click again to let go.
 3. **Hold right click** to reel. Walk backwards while holding it and the load follows you out.
 
 The rope breaks at 25 m, and reeling stops once the load is about 2.5 m away so it does not end up in your
