@@ -2,6 +2,24 @@
 
 All notable changes to Yoink are documented here. Format based on [Keep a Changelog](https://keepachangelog.com).
 
+## [1.1.0] - 2026-08-01
+
+The hook now bites two things it used to slide off: cars somebody is driving, and people.
+
+### Added
+- **Hook people.** A shot that lands on somebody takes them off their feet and drags them, and they get back up
+  by themselves once you let go - the same knockdown and the same recovery the game already uses when a car
+  clips a pedestrian. The whole body comes along, not just the limb the hook is in. Turn it off with
+  `HookPeople` in `UserData/MelonPreferences.cfg`, or change how hard it knocks them over with `Knockdown`.
+
+### Fixed
+- **Vehicles with an NPC driving them ignored the winch completely.** Two separate reasons, both now gone. The
+  game marks a car as occupied when an NPC gets in, and the winch read that as "a player is driving, so their
+  machine owns the physics" and handed the pull to a machine that does not exist in single player - so nobody
+  applied it. And an AI driver rewrites its own throttle and steering every frame, which meant the neutral the
+  winch puts a car in was undone before the next physics step and the car went on braking against the cable.
+- The mod reported itself to MelonLoader as version 0.2.0.
+
 ## [1.0.0] - 2026-08-01
 
 First public build. A hand winch that hooks whatever you aimed at and drags it out.

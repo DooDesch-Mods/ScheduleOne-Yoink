@@ -5,7 +5,7 @@ using Yoink.Item;
 using Yoink.Net;
 using Yoink.Winch;
 
-[assembly: MelonInfo(typeof(Yoink.Core), "Yoink", "0.2.0", "DooDesch", null)]
+[assembly: MelonInfo(typeof(Yoink.Core), "Yoink", "1.1.0", "DooDesch", null)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace Yoink
@@ -45,9 +45,9 @@ namespace Yoink
             catch (Exception e) { Log.Warning("[Core] co-op bus setup failed - single-player is unaffected: " + e.Message); }
 
 #if DEBUG
-            Log.Msg("Yoink v0.2.0 (DEBUG) - winch. Buy it in the hardware store, or type 'yoink help' in the console.");
+            Log.Msg("Yoink v1.1.0 (DEBUG) - winch. Buy it in the hardware store, or type 'yoink help' in the console.");
 #else
-            Log.Msg("Yoink v0.2.0 - winch.");
+            Log.Msg("Yoink v1.1.0 - winch.");
 #endif
         }
 
@@ -95,6 +95,11 @@ namespace Yoink
 
             WinchItem.TickControls();
             WinchSession.Tick(Time.deltaTime);
+
+            // A hooked person is not allowed to stand up. The game's own recovery would put them back on their feet
+            // a second after they stop sliding, which mid-tow means a rope attached to a limb that just went
+            // kinematic - see Winch/NpcGrip.cs.
+            NpcGrip.Tick();
         }
 
         /// <summary>The rope is drawn here, after the game has finished moving the camera and the viewmodel.</summary>
@@ -106,6 +111,11 @@ namespace Yoink
             WinchItem.ReportFraming();
 #endif
             WinchSession.LateTick(Time.deltaTime);
+
+            // Deliberately here and not in OnUpdate. VehicleAgent writes the throttle and steering it wants in its
+            // own LateUpdate, so this is the first point in the frame where our neutral can be the last word before
+            // the next physics step - see Winch/VehicleGrip.cs.
+            VehicleGrip.TickHeld();
         }
 
         public override void OnFixedUpdate()

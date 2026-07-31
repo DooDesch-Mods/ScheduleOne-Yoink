@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Il2CppScheduleOne.Vehicles;   // LandVehicle
 using Il2CppScheduleOne.Dragging;   // Draggable
+using Il2CppScheduleOne.NPCs;       // NPC
 using Yoink.Winch;
 
 namespace Yoink.Net
@@ -28,6 +30,7 @@ namespace Yoink.Net
             internal Rigidbody Rb;
             internal Transform Root;
             internal LandVehicle Vehicle;
+            internal NPC Npc;
         }
 
         private static readonly Dictionary<string, Entry> _active = new Dictionary<string, Entry>(StringComparer.Ordinal);
@@ -58,10 +61,11 @@ namespace Yoink.Net
                     e.PivotLocal = m.PivotLocal;
                     e.Anchor = m.Anchor;
 
-                    // Occupied vehicle: the driver's machine owns its physics, so hand the pull over instead of
-                    // applying force here where it would be overwritten every frame.
+                    // A vehicle with a PLAYER in it: their machine owns its physics, so hand the pull over instead
+                    // of applying force here where it would be overwritten every frame. An NPC driver is not that
+                    // case and must not take this branch - see VehicleGrip.HasPlayerDriver.
                     bool occupied = false;
-                    try { occupied = e.Vehicle != null && e.Vehicle.IsOccupied; } catch { }
+                    try { occupied = e.Vehicle != null && VehicleGrip.HasPlayerDriver(e.Vehicle); } catch { }
                     if (occupied)
                     {
                         _active.Remove(m.TargetId);
@@ -73,13 +77,23 @@ namespace Yoink.Net
                     }
 
                     if (e.Vehicle != null) VehicleGrip.TakeShared(e.Vehicle);
+
+                    // The client already knocked them down on its own screen for the sake of feeling instant. This
+                    // is the authoritative version: it runs the server rpc, so every machine in the session sees it
+                    // and the host is the one keeping them down.
+                    if (e.Npc != null) NpcGrip.TryHold(e.Npc, e.Root != null ? e.Root.TransformPoint(e.PivotLocal) : e.Anchor, e.Anchor);
+
                     _active[m.TargetId] = e;
                     break;
                 }
 
                 case YoinkOp.PullStop:
                 {
-                    if (_active.TryGetValue(m.TargetId, out Entry e) && e.Vehicle != null) VehicleGrip.ReleaseShared(e.Vehicle);
+                    if (_active.TryGetValue(m.TargetId, out Entry e))
+                    {
+                        if (e.Vehicle != null) VehicleGrip.ReleaseShared(e.Vehicle);
+                        if (e.Npc != null) NpcGrip.Release(e.Npc);
+                    }
                     _active.Remove(m.TargetId);
                     YoinkNet.BroadcastToAll(new YoinkMsg { Op = YoinkOp.DriverStop, TargetId = m.TargetId });
                     StopDriverPullLocally(m.TargetId);
@@ -133,10 +147,15 @@ namespace Yoink.Net
                 }
 
                 float dist, along;
+                Vector3 pivot = e.Root.TransformPoint(e.PivotLocal);
+
                 // Zero anchor velocity: an intent carries only where the puller's anchor IS, not how fast it moves.
                 // Sending its velocity too would be more accurate and more wire traffic for a correction smaller than
                 // the interval between intents - the anchor is re-sent often enough that its drift is what we track.
-                PullPhysics.Apply(e.Rb, e.Root.TransformPoint(e.PivotLocal), e.Anchor, Vector3.zero, out dist, out along);
+                if (e.Npc != null)
+                    PullPhysics.ApplyToRagdoll(NpcGrip.PartsOf(e.Npc), e.Rb, pivot, e.Anchor, Vector3.zero, out dist, out along);
+                else
+                    PullPhysics.Apply(e.Rb, pivot, e.Anchor, Vector3.zero, out dist, out along);
             }
 
             if (dead != null)
@@ -166,6 +185,25 @@ namespace Yoink.Net
                     Draggable d = Il2Cpp.GUIDManager.GetObject<Draggable>(new Il2CppSystem.Guid(guid));
                     if (d == null || d.Rigidbody == null) return null;
                     return new Entry { Id = id, Rb = d.Rigidbody, Root = d.transform };
+                }
+                if (id[0] == 'N')
+                {
+                    // A person's id carries the limb on the end: "N:<guid>:<index>". Without it we would know who
+                    // is on the hook but not where, and the drag would come off whichever rigidbody happened to be
+                    // first in the array rather than the one the shot landed on.
+                    int split = guid.LastIndexOf(':');
+                    if (split <= 0) return null;
+
+                    int limbIndex;
+                    if (!int.TryParse(guid.Substring(split + 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out limbIndex)) return null;
+
+                    NPC npc = Il2Cpp.GUIDManager.GetObject<NPC>(new Il2CppSystem.Guid(guid.Substring(0, split)));
+                    if (npc == null) return null;
+
+                    Rigidbody limb = NpcGrip.LimbAt(npc, limbIndex);
+                    if (limb == null) return null;
+
+                    return new Entry { Id = id, Rb = limb, Root = limb.transform, Npc = npc };
                 }
             }
             catch (Exception e) { Core.Log.Warning("[Net] resolving '" + id + "' failed: " + e.Message); }

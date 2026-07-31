@@ -49,6 +49,8 @@ namespace Yoink.Profiling
             p.Counter("TargetSpeed", () => WinchSession.TargetSpeed(), "m/s");
             p.Counter("TargetMass", () => WinchSession.TargetMass(), "kg");
             p.Counter("ReelRate", () => WinchSession.ReelRateSmoothed, "m/s");
+            p.Counter("VehiclesInNeutral", () => VehicleGrip.HeldCount, "");
+            p.Counter("PeopleHeldDown", () => NpcGrip.HeldCount, "");
             p.Counter("HeldScale", () => WinchItem.HeldScale, "x");
             p.Counter("RigHeight", () => WinchItem.RigOffset.y, "m");
 
@@ -107,16 +109,19 @@ namespace Yoink.Profiling
             p.Slider("break dist", 3, 80, () => Preferences.BreakDistance, v => Preferences.BreakDistance = (float)v, 0.5, "m");
             p.Slider("stop dist", 0.5, 15, () => Preferences.StopDistance, v => Preferences.StopDistance = (float)v, 0.25, "m");
             p.Slider("shop price", 0, 2000, () => Preferences.ShopPrice, v => Preferences.ShopPrice = (float)v, 5, "$");
+            p.Slider("knockdown", 0, 400, () => Preferences.Knockdown, v => Preferences.Knockdown = (float)v, 5, "Ns");
 
             // ---- doing things -----------------------------------------------------------------------------
 
             p.Action("give winch", () => WinchItem.Give());
             p.Action("hook nearest", () => { string _; WinchSession.HookNearest(12f, out _); });
+            p.Action("hook nearest person", () => { string _; WinchSession.HookNearestPerson(12f, out _); });
             p.Action("pull 3s", () => { string _; WinchSession.Pull(3f, out _); });
             p.Action("stop pulling", WinchSession.Stop);
             p.Action("drop hook", WinchSession.Drop);
 
             p.Toggle("arms visible", () => WinchItem.ShowArms, v => WinchItem.ShowArms = v);
+            p.Toggle("hook bites people", () => Preferences.HookPeople, v => Preferences.HookPeople = v);
 
             p.Log();
         }

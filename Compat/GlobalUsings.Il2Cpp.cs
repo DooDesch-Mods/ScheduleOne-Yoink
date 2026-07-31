@@ -10,3 +10,6 @@
 global using UnityEngine;
 global using Il2CppScheduleOne.DevUtilities;    // NetworkSingleton<T>, Singleton<T>, PlayerSingleton<T>
 global using Il2CppScheduleOne.PlayerScripts;   // Player (Player.Local), PlayerCamera, PlayerMovement
+
+// Game arrays come back as this, and the fully qualified name is long enough to hide what a signature says.
+global using Il2CppInterop.Runtime.InteropTypes.Arrays;   // Il2CppReferenceArray<T>

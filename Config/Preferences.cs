@@ -20,6 +20,8 @@ namespace Yoink.Config
         private static MelonPreferences_Entry<int> _ropeSegments;
         private static MelonPreferences_Entry<float> _shopPrice;
         private static MelonPreferences_Entry<bool> _ropeCollision;
+        private static MelonPreferences_Entry<bool> _hookPeople;
+        private static MelonPreferences_Entry<float> _knockdown;
 
         /// <summary>
         /// Nominal pull of the winch in newtons - the force that hauls a car out of a ditch.
@@ -79,6 +81,7 @@ namespace Yoink.Config
                 case "range": HookRange = value; return true;
                 case "break": BreakDistance = value; return true;
                 case "stop": StopDistance = value; return true;
+                case "knock": Knockdown = value; return true;
                 default: return false;
             }
         }
@@ -100,6 +103,26 @@ namespace Yoink.Config
         /// <summary>Whether the rope collides with the world instead of hanging through it.</summary>
         internal static bool RopeCollision => _ropeCollision?.Value ?? true;
 
+        /// <summary>Whether the hook bites on people. Off means the hook passes them by and reports why.</summary>
+        internal static bool HookPeople
+        {
+            get => _hookPeople?.Value ?? true;
+            set { if (_hookPeople != null) _hookPeople.Value = value; }
+        }
+
+        /// <summary>
+        /// The impulse, in newton-seconds, that takes a hooked person off their feet.
+        ///
+        /// It goes through the game's own <c>ApplyRagdollForce</c>, the same call a car uses when it hits somebody -
+        /// there it is speed in km/h times four, so 60 is roughly being clipped by a car doing 15. Enough to put
+        /// them down without launching them across the street.
+        /// </summary>
+        internal static float Knockdown
+        {
+            get => _knockdown?.Value ?? 60f;
+            set { if (_knockdown != null) _knockdown.Value = value < 0f ? 0f : value; }
+        }
+
         internal static void Initialize()
         {
             _cat = MelonPreferences.CreateCategory("Yoink", "Yoink");
@@ -120,6 +143,10 @@ namespace Yoink.Config
                 "What the winch costs in the shop. Read once when the item is registered, so a change applies on the next load.");
             _ropeCollision = _cat.CreateEntry("RopeCollision", true, "Rope collides with the world",
                 "Rope slack rests on the ground instead of hanging through it. Costs a couple of short raycasts per frame while a hook is attached.");
+            _hookPeople = _cat.CreateEntry("HookPeople", true, "Hook can bite people",
+                "The hook takes NPCs off their feet and drags them. They get back up on their own once you let go, the same way they do after a car clips them.");
+            _knockdown = _cat.CreateEntry("Knockdown", 60f, "Knockdown impulse (Ns)",
+                "How hard a hooked person is knocked over. Uses the game's own ragdoll force, where a car hit is its speed in km/h times four.");
         }
 
         /// <summary>One-line dump of the live tuning values, for <c>yoinkinfo</c>.</summary>

@@ -171,6 +171,38 @@ namespace Yoink.Winch
             return true;
         }
 
+        /// <summary>
+        /// Hooks the nearest person within <paramref name="radius"/>, ignoring where the camera points.
+        ///
+        /// Same reason <see cref="HookNearest"/> exists: knocking somebody down and dragging them is a path that
+        /// has to be runnable from a script, or it only ever gets checked by hand and reaches players unverified.
+        /// </summary>
+        internal static bool HookNearestPerson(float radius, out string message)
+        {
+            message = null;
+
+            Vector3 origin;
+            try
+            {
+                Player local = Player.Local;
+                if (local == null) { message = "no local player"; return false; }
+                origin = local.transform.position + Vector3.up * 1.0f;
+            }
+            catch { message = "no local player"; return false; }
+
+            WinchTarget t;
+            string reason;
+            if (!WinchTarget.TryAcquireNearestPerson(origin, radius, out t, out reason))
+            {
+                message = "no hold: " + reason;
+                return false;
+            }
+
+            Attach(t);
+            message = "hooked " + t.Describe() + " at " + Distance().ToString("F1", CultureInfo.InvariantCulture) + "m (nearest person)";
+            return true;
+        }
+
         private static void Attach(WinchTarget t)
         {
             Drop();   // one hook at a time
@@ -229,8 +261,10 @@ namespace Yoink.Winch
                 return;
             }
 
-            // Somebody is sitting in it: their machine simulates that vehicle, so ours must not fight it.
-            if (_target.Vehicle != null && VehicleGrip.IsOccupied(_target.Vehicle))
+            // A PLAYER is sitting in it: their machine simulates that vehicle, so ours must not fight it. An NPC at
+            // the wheel is not that case - the host still owns those, and handing them over meant nobody applied
+            // the pull at all.
+            if (_target.Vehicle != null && VehicleGrip.HasPlayerDriver(_target.Vehicle))
             {
                 bool weDrive = false;
                 try { weDrive = _target.Vehicle.LocalPlayerIsDriver; } catch { }
@@ -252,8 +286,15 @@ namespace Yoink.Winch
                 }
             }
 
-            // Ours to apply. Free the wheels first, or the handbrake eats the whole pull.
-            if (_target.Vehicle != null) VehicleGrip.TakeShared(_target.Vehicle);
+            // Ours to apply. Free the wheels first, or the handbrake eats the whole pull - and if an NPC is at the
+            // wheel, keep freeing them, because that one drives its throttle and steering back every single frame.
+            if (_target.Vehicle != null)
+            {
+                VehicleGrip.TakeShared(_target.Vehicle);
+                if (VehicleGrip.HasNpcDriver(_target.Vehicle))
+                    Core.Log.Msg("[Winch] " + _target.Label + " has " + VehicleGrip.DescribeDriver(_target.Vehicle)
+                               + " at the wheel - holding it in neutral while the hook is in.");
+            }
         }
 
         internal static void Stop()
@@ -287,6 +328,7 @@ namespace Yoink.Winch
             PayOutRate = 0f;
             _lastDistance = -1f;
             if (_target != null && _target.Vehicle != null) VehicleGrip.ReleaseShared(_target.Vehicle);
+            if (_target != null) _target.Release();
             _target = null;
             _holdPulling = false;
             if (_rope != null) _rope.Detach();
@@ -355,6 +397,17 @@ namespace Yoink.Winch
             if (!_target.Alive)
             {
                 Core.Log.Msg("[Winch] target is gone - hook released.");
+                Drop();
+                return;
+            }
+
+            // A hooked person who is back on their feet has nothing left to pull on: standing up turns every ragdoll
+            // rigidbody kinematic. Something outside the winch did that - being taken to the medical centre, or
+            // waking up from unconscious - and a rope tied to a body that cannot move reads as a broken winch, so
+            // let go and say why.
+            if (_target.Npc != null && !NpcGrip.IsDown(_target.Npc))
+            {
+                Core.Log.Msg("[Winch] " + _target.Label + " got back on their feet - hook released.");
                 Drop();
                 return;
             }
@@ -450,7 +503,9 @@ namespace Yoink.Winch
             }
 
             float dist, along;
-            bool applied = PullPhysics.Apply(rb, _target.PivotWorld, _physicsAnchor, _physicsAnchorVelocity, out dist, out along);
+            bool applied = _target.Npc != null
+                ? PullPhysics.ApplyToRagdoll(NpcGrip.PartsOf(_target.Npc), rb, _target.PivotWorld, _physicsAnchor, _physicsAnchorVelocity, out dist, out along)
+                : PullPhysics.Apply(rb, _target.PivotWorld, _physicsAnchor, _physicsAnchorVelocity, out dist, out along);
             TrackRate(along, dist > Preferences.StopDistance);
 
             if (!applied && dist > 0f && dist <= Preferences.StopDistance)
@@ -500,6 +555,7 @@ namespace Yoink.Winch
         {
             Drop();
             VehicleGrip.ReleaseAll();
+            NpcGrip.ReleaseAll();
             RemotePulls.Clear();
             if (_rope != null) { _rope.Destroy(); _rope = null; }
         }
@@ -540,6 +596,7 @@ namespace Yoink.Winch
             try { speed = _target.Rb.velocity.magnitude; } catch { }
 
             string owner = _delegatedToHost ? " [host pulls]" : (_delegatedToDriver ? " [driver pulls]" : "");
+            if (_target.Npc != null) owner += NpcGrip.IsDown(_target.Npc) ? " [down]" : " [back on their feet]";
 
             return _target.Describe()
                  + " dist=" + Distance().ToString("F1", inv) + "m"
@@ -585,6 +642,143 @@ namespace Yoink.Winch
         {
             if (_rope == null) _rope = new VerletRope(Preferences.RopeSegments);
         }
+
+#if DEBUG
+        /// <summary>
+        /// Lists every vehicle the game knows about, nearest first, with the state that decides whether a winch can
+        /// move it. Console only.
+        ///
+        /// The crosshair probe answers "why is THIS one not moving"; this answers "what kinds of vehicle are even
+        /// out there", which is the question when a report says a whole category ignores the winch. Reading it out
+        /// of VehicleManager rather than a physics query means parked, invisible and far-away ones show up too -
+        /// exactly the ones a query near the player would miss.
+        /// </summary>
+        internal static string ListVehicles(int max)
+        {
+            var mgr = Il2CppScheduleOne.Vehicles.VehicleManager.Instance;
+            if (mgr == null || mgr.AllVehicles == null) return "no vehicle manager";
+
+            Vector3 me;
+            try { me = Player.Local.transform.position; } catch { me = Vector3.zero; }
+
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            var rows = new List<KeyValuePair<float, string>>();
+
+            for (int i = 0; i < mgr.AllVehicles.Count; i++)
+            {
+                var v = mgr.AllVehicles[i];
+                if (v == null) continue;
+
+                try
+                {
+                    float d = Vector3.Distance(me, v.transform.position);
+                    string name = string.IsNullOrEmpty(v.VehicleName) ? v.gameObject.name : v.VehicleName;
+
+                    string row = d.ToString("F0", inv) + "m " + name
+                               + (v.Rb != null && v.Rb.isKinematic ? " KINEMATIC" : " dynamic")
+                               + (v.isParked ? " parked" : "")
+                               + (v.IsPlayerOwned ? " mine" : "")
+                               + (v.IsVisible ? "" : " hidden")
+                               + " sim=" + v.IsPhysicallySimulated
+                               + " brake=" + v.HandbrakeApplied
+                               + " driver=" + VehicleGrip.DescribeDriver(v);
+
+                    rows.Add(new KeyValuePair<float, string>(d, row));
+                }
+                catch { }
+            }
+
+            if (rows.Count == 0) return "no vehicles in the world";
+            rows.Sort((a, b) => a.Key.CompareTo(b.Key));
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append(rows.Count).Append(" vehicle(s):");
+            for (int i = 0; i < rows.Count && i < max; i++) sb.Append("\n  ").Append(rows[i].Value);
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Reports what is under the crosshair and what would stop the winch moving it, WITHOUT hooking anything.
+        ///
+        /// This exists because "the pull does nothing" and "the pull is being cancelled" look identical from the
+        /// outside, and every wrong guess in this mod's history was fixed by measuring instead. It reads the state
+        /// that actually decides the outcome: whether the body is kinematic (the game switches vehicles in and out
+        /// of physics every FixedUpdate), whether the wheels are braked, and who is driving.
+        /// </summary>
+        internal static string ProbeAhead()
+        {
+            Transform cam = Camera();
+            if (cam == null) return "no player camera";
+
+            RaycastHit hit;
+            if (!Physics.Raycast(new Ray(cam.position, cam.forward), out hit, Preferences.HookRange,
+                                 Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                return "nothing within " + Mathf.RoundToInt(Preferences.HookRange) + "m";
+
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+
+            try
+            {
+                sb.Append(hit.collider.gameObject.name)
+                  .Append(" layer=").Append(LayerMask.LayerToName(hit.collider.gameObject.layer))
+                  .Append(" at ").Append(hit.distance.ToString("F1", inv)).Append('m');
+            }
+            catch { sb.Append("<collider unreadable>"); }
+
+            Il2CppScheduleOne.NPCs.NPC npc = null;
+            try { npc = hit.collider.GetComponentInParent<Il2CppScheduleOne.NPCs.NPC>(); } catch { }
+            if (npc != null)
+            {
+                try
+                {
+                    sb.Append(" | person ").Append(NpcGrip.SafeName(npc))
+                      .Append(" ragdolled=").Append(npc.Avatar != null && npc.Avatar.Ragdolled)
+                      .Append(" conscious=").Append(npc.IsConscious)
+                      .Append(" inVehicle=").Append(npc.IsInVehicle);
+                }
+                catch { sb.Append(" | person <unreadable>"); }
+                return sb.ToString();
+            }
+
+            Rigidbody rb = hit.rigidbody;
+            if (rb == null) { try { rb = hit.collider.GetComponentInParent<Rigidbody>(); } catch { } }
+            if (rb == null) return sb.Append(" | no rigidbody").ToString();
+
+            try
+            {
+                sb.Append(" | rb ").Append(rb.gameObject.name)
+                  .Append(' ').Append(rb.mass.ToString("F0", inv)).Append("kg")
+                  .Append(rb.isKinematic ? " KINEMATIC" : " dynamic");
+            }
+            catch { }
+
+            Il2CppScheduleOne.Vehicles.LandVehicle v = null;
+            try { v = hit.collider.GetComponentInParent<Il2CppScheduleOne.Vehicles.LandVehicle>(); } catch { }
+            if (v == null) return sb.ToString();
+
+            try
+            {
+                sb.Append(" | vehicle parked=").Append(v.isParked)
+                  .Append(" simulated=").Append(v.IsPhysicallySimulated)
+                  .Append(" handbrake=").Append(v.HandbrakeApplied)
+                  .Append(" driver=").Append(VehicleGrip.DescribeDriver(v))
+                  .Append(" override=").Append(v.overrideControls)
+                  .Append(" throttle=").Append(v.currentThrottle.ToString("F2", inv))
+                  .Append(" steer=").Append(v.steerOverride.ToString("F2", inv));
+            }
+            catch { }
+
+            try
+            {
+                var agent = v.Agent;
+                if (agent != null) sb.Append(" | agent driving=").Append(agent.AutoDriving).Append(" kinematicMode=").Append(agent.KinematicMode);
+            }
+            catch { }
+
+            return sb.ToString();
+        }
+#endif
 
         /// <summary>Once-per-second physics trace, so a pull that does nothing says why. Debug builds only.</summary>
         [System.Diagnostics.Conditional("DEBUG")]

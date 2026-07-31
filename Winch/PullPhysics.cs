@@ -137,6 +137,93 @@ namespace Yoink.Winch
         }
 
         /// <summary>
+        /// One FixedUpdate of winch pull on a ragdoll: the same cable, but the load is a whole person rather than
+        /// the one limb the hook happens to be in.
+        ///
+        /// Treating a hooked body like any other rigidbody does not work, and the reason is arithmetic rather than
+        /// taste. The hook lands on whatever the shot hit - a forearm weighs about six kilos, so the speed ceiling
+        /// converts to roughly 8 Ns per step, and that 8 Ns has to drag sixty kilos of person through a chain of
+        /// character joints. Measured in game: 380 N of continuous pull moved the body nothing at all while the arm
+        /// stretched. The joints are a spring, not a tow bar.
+        ///
+        /// So the impulse is shared across every part of the ragdoll in proportion to its mass, which is what a hook
+        /// through a body actually does once the slack is out: the person accelerates as one. The ceiling is still
+        /// measured at the hook point, because that is where the cable is and where its speed limit means something,
+        /// and the hooked part still takes its share off-centre so the body turns to follow the rope instead of
+        /// sliding sideways like a crate.
+        /// </summary>
+        internal static bool ApplyToRagdoll(Il2CppReferenceArray<Rigidbody> parts,
+                                            Rigidbody hooked, Vector3 pivotWorld, Vector3 anchor, Vector3 anchorVelocity,
+                                            out float distance, out float alongRope)
+        {
+            distance = 0f;
+            alongRope = 0f;
+            if (hooked == null || parts == null) return false;
+
+            try
+            {
+                if (hooked.isKinematic) return false;
+
+                float dt = Time.fixedDeltaTime;
+                if (dt <= 0f) return false;
+
+                Vector3 toAnchor = anchor - pivotWorld;
+                distance = toAnchor.magnitude;
+                if (distance <= Preferences.StopDistance) return false;
+
+                Vector3 dir = toAnchor / distance;
+
+                alongRope = Vector3.Dot(hooked.GetPointVelocity(pivotWorld) - anchorVelocity, dir);
+                float headroom = Preferences.MaxSpeed - alongRope;
+                if (headroom <= 0f) return false;
+
+                float totalMass = 0f;
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    Rigidbody p = parts[i];
+                    if (p == null || p.isKinematic) continue;
+                    totalMass += p.mass;
+                }
+                if (totalMass <= 1e-6f) return false;
+
+                // The whole body may not gain more than the headroom in one step. Expressed against the total mass,
+                // not the limb's, which is the entire point of this method.
+                float impulse = Preferences.PullNewtons * dt;
+                float ceiling = headroom * totalMass;
+                if (impulse > ceiling) impulse = ceiling;
+                if (impulse <= 0f) return false;
+
+#if DEBUG
+                LastWanted = Preferences.PullNewtons * dt;
+                LastSpeedLimit = ceiling;
+                LastImpulse = impulse;
+                LastInvEffMass = 1f / totalMass;
+#endif
+
+                int hookedId = hooked.GetInstanceID();
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    Rigidbody p = parts[i];
+                    if (p == null || p.isKinematic) continue;
+
+                    Vector3 share = dir * (impulse * (p.mass / totalMass));
+
+                    // Every interop cast hands back a fresh wrapper, so the hooked part is recognised by instance
+                    // id rather than by reference - the same reason VehicleGrip tracks vehicles that way.
+                    if (p.GetInstanceID() == hookedId) p.AddForceAtPosition(share, pivotWorld, ForceMode.Impulse);
+                    else p.AddForce(share, ForceMode.Impulse);
+                }
+
+                return true;
+            }
+            catch (Exception e)
+            {
+                Core.Log.Warning("[Winch] ragdoll pull failed: " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
         /// How the body responds, at the hook point and along the rope, to one newton-second of impulse.
         ///
         /// <paramref name="inverseEffectiveMass"/> is 1/m plus the rotational term - the reciprocal of the mass the

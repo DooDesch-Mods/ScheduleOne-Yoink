@@ -30,8 +30,9 @@ namespace Yoink.Debugging
         /// it splits on commas and offers the token at the position you are typing.
         /// </summary>
         internal const string Usage =
-            "yoink help, yoink hook, yoink nearest 8, yoink pull 3, yoink stop, yoink drop, yoink info, " +
-            "yoink give, yoink equip, yoink force 12000, yoink set pull 12000, yoink set vmax 1.5, yoink test 8, " +
+            "yoink help, yoink hook, yoink nearest 8, yoink person 8, yoink probe, yoink pull 3, yoink stop, " +
+            "yoink drop, yoink info, yoink give, yoink equip, yoink force 12000, yoink set pull 12000, " +
+            "yoink set vmax 1.5, yoink set knock 60, yoink test 8, " +
             "yoink vm show, yoink vm move 0 0 -0.02, yoink vm turn 0 15 0";
 
         private static readonly List<string> _pending = new List<string>();
@@ -76,6 +77,9 @@ namespace Yoink.Debugging
                     case "help":
                         Say("hook            - fire the hook where you are looking");
                         Say("nearest [r]     - hook the nearest rigidbody (default 8m, no aiming)");
+                        Say("person [r]      - knock down and hook the nearest person (default 8m, no aiming)");
+                        Say("probe           - what is under the crosshair, and whether it can be pulled");
+                        Say("cars [n]        - every vehicle in the world, nearest first, with its physics state");
                         Say("pull [seconds]  - reel in (default 3s, 0 = until 'yoink stop')");
                         Say("stop            - stop reeling, keep the hook");
                         Say("drop            - release the hook");
@@ -120,6 +124,35 @@ namespace Yoink.Debugging
                         }
                         WinchSession.HookNearest(radius, out message);
                         Say(message);
+                        break;
+                    }
+
+                    case "person":
+                    {
+                        float radius = 8f;
+                        if (arg1 != null && !float.TryParse(arg1, NumberStyles.Float, CultureInfo.InvariantCulture, out radius))
+                        {
+                            Say("usage: yoink person [radius]");
+                            break;
+                        }
+                        WinchSession.HookNearestPerson(radius, out message);
+                        Say(message);
+                        break;
+                    }
+
+                    case "probe":
+                        Say(WinchSession.ProbeAhead());
+                        break;
+
+                    case "cars":
+                    {
+                        int max = 12;
+                        if (arg1 != null && !int.TryParse(arg1, NumberStyles.Integer, CultureInfo.InvariantCulture, out max))
+                        {
+                            Say("usage: yoink cars [how many]");
+                            break;
+                        }
+                        foreach (string line in WinchSession.ListVehicles(max).Split('\n')) Say(line);
                         break;
                     }
 
@@ -179,7 +212,7 @@ namespace Yoink.Debugging
                         if (arg1 == null || arg2 == null || !float.TryParse(arg2, NumberStyles.Float, CultureInfo.InvariantCulture, out v)
                             || !Preferences.TrySet(arg1.ToLower(), v))
                         {
-                            Say("usage: yoink set <pull|vmax|range|break|stop> <value>  (now: " + Preferences.Describe() + ")");
+                            Say("usage: yoink set <pull|vmax|range|break|stop|knock> <value>  (now: " + Preferences.Describe() + ")");
                             break;
                         }
                         Say(Preferences.Describe());
