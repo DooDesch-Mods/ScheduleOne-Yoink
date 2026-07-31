@@ -104,19 +104,29 @@ namespace Yoink.Winch
         {
             if (_held.Count == 0) return;
 
-            List<int> dead = null;
+            List<int> gone = null;      // destroyed: forget them
+            List<int> claimed = null;   // somebody got in: hand the vehicle back
+
             foreach (KeyValuePair<int, Saved> kv in _held)
             {
                 LandVehicle v = kv.Value.Vehicle;
                 bool alive;
                 try { alive = v != null; } catch { alive = false; }
-                if (!alive) { (dead ??= new List<int>()).Add(kv.Key); continue; }
+                if (!alive) { (gone ??= new List<int>()).Add(kv.Key); continue; }
+
+                // Neutral works by taking overrideControls, and LandVehicle.Update checks that BEFORE it reads the
+                // driver's input - so holding it on a vehicle a player has just climbed into would take their
+                // throttle and steering away. Give it back instead; a towed car somebody gets into is theirs now.
+                if (HasPlayerDriver(v)) { (claimed ??= new List<int>()).Add(kv.Key); continue; }
 
                 Neutralise(v);
             }
 
-            if (dead != null)
-                for (int i = 0; i < dead.Count; i++) _held.Remove(dead[i]);
+            if (gone != null)
+                for (int i = 0; i < gone.Count; i++) _held.Remove(gone[i]);
+
+            if (claimed != null)
+                for (int i = 0; i < claimed.Count; i++) Restore(claimed[i]);
         }
 
         /// <summary>Wheels rolling, nothing braking, nothing steering.</summary>

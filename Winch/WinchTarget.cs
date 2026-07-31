@@ -29,13 +29,20 @@ namespace Yoink.Winch
         /// <summary>Which of the NPC's ragdoll rigidbodies the hook is in. Travels on the wire with the id.</summary>
         internal int LimbIndex = -1;
 
+        /// <summary>
+        /// The whole ragdoll, cached at hook time. Read every physics step by the pull, and reading it off the
+        /// avatar there would hand back a fresh interop array wrapper fifty times a second for an array that never
+        /// changes for the life of a hook.
+        /// </summary>
+        internal Il2CppReferenceArray<Rigidbody> Parts;
+
         /// <summary>Human-readable name for console output.</summary>
         internal string Label = "?";
 
         /// <summary>
         /// Wire id for co-op, or null when this object only exists on this machine. Only GUID-registered things
-        /// travel - vehicles and the game's draggables; scenery physics is per-machine anyway and is pulled
-        /// locally without ever being sent.
+        /// travel - vehicles, the game's draggables and people; scenery physics is per-machine anyway and is
+        /// pulled locally without ever being sent.
         /// </summary>
         internal string NetId;
 
@@ -53,11 +60,28 @@ namespace Yoink.Winch
             }
         }
 
+        /// <summary>
+        /// What the winch is actually hauling, in kg.
+        ///
+        /// For a person that is the whole ragdoll rather than the limb the hook is in, which is both what the pull
+        /// treats as the load and what a readout saying "person, 6kg" would otherwise get wrong by an order of
+        /// magnitude.
+        /// </summary>
         internal float Mass
         {
             get
             {
-                try { return Rb != null ? Rb.mass : 0f; }
+                try
+                {
+                    if (Npc != null && Parts != null)
+                    {
+                        float total = 0f;
+                        for (int i = 0; i < Parts.Length; i++) if (Parts[i] != null) total += Parts[i].mass;
+                        if (total > 0f) return total;
+                    }
+
+                    return Rb != null ? Rb.mass : 0f;
+                }
                 catch { return 0f; }
             }
         }
@@ -152,6 +176,7 @@ namespace Yoink.Winch
             t.PivotLocal = t.Root.InverseTransformPoint(hitPoint);
             t.Npc = npc;
             t.LimbIndex = limbIndex;
+            t.Parts = NpcGrip.PartsOf(npc);
             t.Label = NpcGrip.SafeName(npc);
             t.NetId = MakeNetId(t);
 
@@ -274,6 +299,10 @@ namespace Yoink.Winch
                 try { npc = col.GetComponentInParent<NPC>(); } catch { }
                 if (npc == null) continue;
 
+                // Somebody riding in a car is not hookable, and skipping them HERE rather than letting the hook
+                // refuse them later is the difference between "nobody within 8m" and finding the next person along.
+                try { if (npc.IsInVehicle) continue; } catch { }
+
                 float d;
                 try { d = Vector3.Distance(origin, npc.transform.position); }
                 catch { continue; }
@@ -357,7 +386,7 @@ namespace Yoink.Winch
                         : Draggable != null ? "draggable" : "rigidbody";
             string kin = "?";
             try { kin = Rb.isKinematic ? "kinematic" : "dynamic"; } catch { }
-            return Label + " [" + kind + ", " + Mass.ToString("F0", System.Globalization.CultureInfo.InvariantCulture) + "kg, " + kin + "]";
+            return Label + " [" + kind + ", " + Mass.ToString("F0", CultureInfo.InvariantCulture) + "kg, " + kin + "]";
         }
 
         private static string SafeName(Transform t)

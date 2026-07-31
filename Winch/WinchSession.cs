@@ -281,7 +281,7 @@ namespace Yoink.Winch
                             Anchor = _pullAnchor,
                         });
                     }
-                    Core.Log.Msg("[Winch] someone is driving - the pull is theirs to feel, not ours to apply.");
+                    Core.Log.Msg("[Winch] another player is driving - the pull is theirs to feel, not ours to apply.");
                     return;
                 }
             }
@@ -504,7 +504,7 @@ namespace Yoink.Winch
 
             float dist, along;
             bool applied = _target.Npc != null
-                ? PullPhysics.ApplyToRagdoll(NpcGrip.PartsOf(_target.Npc), rb, _target.PivotWorld, _physicsAnchor, _physicsAnchorVelocity, out dist, out along)
+                ? PullPhysics.ApplyToRagdoll(_target.Parts, rb, _target.PivotWorld, _physicsAnchor, _physicsAnchorVelocity, out dist, out along)
                 : PullPhysics.Apply(rb, _target.PivotWorld, _physicsAnchor, _physicsAnchorVelocity, out dist, out along);
             TrackRate(along, dist > Preferences.StopDistance);
 

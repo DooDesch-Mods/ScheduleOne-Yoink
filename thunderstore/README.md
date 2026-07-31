@@ -78,9 +78,9 @@ because the speed ceiling binds first. Raising the speed will not free a stuck v
 ## Multiplayer
 
 Everyone needs the mod. The machine that owns an object applies the force to it, so a pull on a networked
-object goes through the host, and a pull on a vehicle another player is sitting in is handed to their
-machine -
-that is the only one whose forces the vehicle accepts. The rope is not networked and does not need to be.
+object goes through the host, and a pull on a vehicle another player is sitting in is handed to their machine,
+which is the only one whose forces that vehicle accepts. A vehicle an NPC is driving stays the host's. The rope
+is not networked and does not need to be.
 
 Co-op is implemented and reviewed but has not been run with two players since the physics rework.
 

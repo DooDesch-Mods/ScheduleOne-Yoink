@@ -15,10 +15,11 @@ namespace Yoink.Net
     /// already simulates every unoccupied vehicle, so letting it own the force means no transform fight, no
     /// ownership dance, and several players pulling the same wreck simply add up.
     ///
-    /// The one exception is a vehicle with somebody in it. That one is simulated on the DRIVER's machine
+    /// The one exception is a vehicle with a PLAYER in it. That one is simulated on the driver's machine
     /// (LandVehicle.ShouldBePhysicallySimulated returns true for LocalPlayerIsDriver), so host-side force would
     /// only produce rubber-banding. For those the host hands the pull to whoever is driving, and their client
-    /// applies it here.
+    /// applies it here. An NPC at the wheel is not that case and stays the host's - asking the wrong question
+    /// there is what made NPC-driven vehicles ignore the winch entirely, see VehicleGrip.HasPlayerDriver.
     /// </summary>
     internal static class RemotePulls
     {
@@ -31,6 +32,9 @@ namespace Yoink.Net
             internal Transform Root;
             internal LandVehicle Vehicle;
             internal NPC Npc;
+
+            /// <summary>The whole ragdoll, resolved once - see WinchTarget.Parts for why not per physics step.</summary>
+            internal Il2CppReferenceArray<Rigidbody> Parts;
         }
 
         private static readonly Dictionary<string, Entry> _active = new Dictionary<string, Entry>(StringComparer.Ordinal);
@@ -153,7 +157,7 @@ namespace Yoink.Net
                 // Sending its velocity too would be more accurate and more wire traffic for a correction smaller than
                 // the interval between intents - the anchor is re-sent often enough that its drift is what we track.
                 if (e.Npc != null)
-                    PullPhysics.ApplyToRagdoll(NpcGrip.PartsOf(e.Npc), e.Rb, pivot, e.Anchor, Vector3.zero, out dist, out along);
+                    PullPhysics.ApplyToRagdoll(e.Parts, e.Rb, pivot, e.Anchor, Vector3.zero, out dist, out along);
                 else
                     PullPhysics.Apply(e.Rb, pivot, e.Anchor, Vector3.zero, out dist, out along);
             }
@@ -203,7 +207,7 @@ namespace Yoink.Net
                     Rigidbody limb = NpcGrip.LimbAt(npc, limbIndex);
                     if (limb == null) return null;
 
-                    return new Entry { Id = id, Rb = limb, Root = limb.transform, Npc = npc };
+                    return new Entry { Id = id, Rb = limb, Root = limb.transform, Npc = npc, Parts = NpcGrip.PartsOf(npc) };
                 }
             }
             catch (Exception e) { Core.Log.Warning("[Net] resolving '" + id + "' failed: " + e.Message); }
