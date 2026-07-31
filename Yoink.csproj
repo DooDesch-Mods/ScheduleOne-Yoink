@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Shared release hardening: strip Release debug info + assembly identity, cuts AV false positives (see Workspace/build/Hardening.props). -->
+  <!-- Snitch profiler + in-game control panel, DEBUG only (Snitch/Probe.cs). Release contains zero Snitch types. -->
+  <Import Project="$(MSBuildThisFileDirectory)../Workspace/build/Snitch.props" Condition="Exists('$(MSBuildThisFileDirectory)../Workspace/build/Snitch.props')" />
+  <Import Project="$(MSBuildThisFileDirectory)Workspace/build/Snitch.props" Condition="Exists('$(MSBuildThisFileDirectory)Workspace/build/Snitch.props')" />
+
   <Import Project="$(MSBuildThisFileDirectory)../Workspace/build/Hardening.props" Condition="Exists('$(MSBuildThisFileDirectory)../Workspace/build/Hardening.props')" />
   <Import Project="$(MSBuildThisFileDirectory)Workspace/build/Hardening.props" Condition="Exists('$(MSBuildThisFileDirectory)Workspace/build/Hardening.props')" />
 
@@ -27,9 +31,9 @@
     <RootNamespace>Yoink</RootNamespace>
     <AssemblyName>Yoink</AssemblyName>
     <NeutralLanguage>en-US</NeutralLanguage>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.3.0</Version>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
+    <FileVersion>0.3.0.0</FileVersion>
     <!-- Suppress MSB3277/MSB3245 noise from il2cpp interop transitive refs -->
     <NoWarn>$(NoWarn);MSB3277;MSB3245</NoWarn>
 

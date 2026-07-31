@@ -133,7 +133,10 @@ namespace Yoink.Net
                 }
 
                 float dist, along;
-                PullPhysics.Apply(e.Rb, e.Root.TransformPoint(e.PivotLocal), e.Anchor, out dist, out along);
+                // Zero anchor velocity: an intent carries only where the puller's anchor IS, not how fast it moves.
+                // Sending its velocity too would be more accurate and more wire traffic for a correction smaller than
+                // the interval between intents - the anchor is re-sent often enough that its drift is what we track.
+                PullPhysics.Apply(e.Rb, e.Root.TransformPoint(e.PivotLocal), e.Anchor, Vector3.zero, out dist, out along);
             }
 
             if (dead != null)

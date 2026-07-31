@@ -19,10 +19,50 @@ namespace Yoink.Debugging
         /// </summary>
         internal static void EquipWinch()
         {
+            // Deliberately not equipped here. A console command runs with the console OPEN, and the console is a UI
+            // element: PlayerInventory.SetEquippingEnabled(false) has already blanked EquippedSlotIndex, and when the
+            // console closes it re-equips PriorEquippedSlotIndex - a value captured BEFORE this command ran. Anything
+            // written now is silently thrown away a moment later, which is exactly what it looked like: the log said
+            // "equipped" and nothing was ever in hand. So the request is parked and applied once the game will keep it.
+            _equipPending = Time.unscaledTime + 3f;
+        }
+
+        private static float _equipPending;
+        private static float _camDumpPending;
+
+        /// <summary>
+        /// Asks for the camera dump once the console is out of the way.
+        ///
+        /// Same reason the equip is parked: while the console is open the game has unequipped the item, so anything
+        /// that inspects the held model reports "nothing in hand" - which is a fact about the console, not about the
+        /// winch, and reads like a bug that is not there.
+        /// </summary>
+        internal static void DumpCamerasSoon()
+        {
+            Yoink.Item.WinchItem.ArmDumps();
+            _camDumpPending = Time.unscaledTime + 3f;
+        }
+
+        /// <summary>Applies parked console requests once the console has closed and the game is live again.</summary>
+        internal static void Tick()
+        {
+            TickCameraDump();
+            if (_equipPending <= 0f) return;
+
+            if (Time.unscaledTime > _equipPending)
+            {
+                _equipPending = 0f;
+                Core.Log.Warning("[Test] gave up equipping the winch - equipping never came back.");
+                return;
+            }
+
             try
             {
                 var inv = PlayerSingleton<PlayerInventory>.Instance;
-                if (inv == null) { Core.Log.Warning("[Test] no inventory."); return; }
+                if (inv == null || !inv.EquippingEnabled) return;
+
+                var cam = PlayerSingleton<PlayerCamera>.Instance;
+                if (cam != null && cam.activeUIElementCount > 0) return;   // console still up
 
                 for (int i = 0; i < inv.hotbarSlots.Count; i++)
                 {
@@ -31,14 +71,35 @@ namespace Yoink.Debugging
                     if (item == null || item.Definition == null) continue;
                     if (item.Definition.ID != Yoink.Item.WinchItem.Id) continue;
 
+                    // The same two steps the game's own hotkey handler does. Setting the index alone only tells the
+                    // network which slot is live; Select() is what actually puts the thing in your hands.
                     inv.EquippedSlotIndex = i;
+                    inv.Equip(slot);
+
+                    _equipPending = 0f;
                     Core.Log.Msg("[Test] equipped the winch from hotbar slot " + (i + 1) + ".");
                     return;
                 }
 
-                Core.Log.Warning("[Test] no winch in the hotbar - run yoinkgive first.");
+                _equipPending = 0f;
+                Core.Log.Warning("[Test] no winch in the hotbar - run 'yoink give' first.");
             }
-            catch (Exception e) { Core.Log.Warning("[Test] equip failed: " + e.Message); }
+            catch (Exception e)
+            {
+                _equipPending = 0f;
+                Core.Log.Warning("[Test] equip failed: " + e.Message);
+            }
+        }
+
+        private static void TickCameraDump()
+        {
+            if (_camDumpPending <= 0f) return;
+
+            bool expired = Time.unscaledTime > _camDumpPending;
+            if (!expired && !Yoink.Item.WinchItem.IsEquipped()) return;
+
+            _camDumpPending = 0f;
+            foreach (string line in Yoink.Item.WinchItem.DescribeCameras()) Core.Log.Msg("[Cam] " + line);
         }
 
         /// <summary>Equips an arbitrary hotbar slot, so a vanilla weapon can be put in hand for comparison.</summary>

@@ -4,16 +4,15 @@ using MelonLoader;
 namespace Yoink.Config
 {
     /// <summary>
-    /// MelonPreferences for the winch. Everything here is a tuning knob that the POC exists to find real values
-    /// for - the defaults are starting points, not answers, and <c>yoinkforce</c> can move the important one at
-    /// runtime without a rebuild.
+    /// MelonPreferences for the winch. Everything here is a tuning knob that live testing exists to find real values
+    /// for - the defaults are starting points, not answers, and the Snitch panel can move them at runtime without a
+    /// rebuild.
     /// </summary>
     internal static class Preferences
     {
         private static MelonPreferences_Category _cat;
 
         private static MelonPreferences_Entry<float> _pullNewtons;
-        private static MelonPreferences_Entry<float> _minAccel;
         private static MelonPreferences_Entry<float> _maxSpeed;
         private static MelonPreferences_Entry<float> _hookRange;
         private static MelonPreferences_Entry<float> _breakDistance;
@@ -22,7 +21,7 @@ namespace Yoink.Config
         private static MelonPreferences_Entry<float> _shopPrice;
         private static MelonPreferences_Entry<bool> _ropeCollision;
 
-        /// <summary>Nominal pull of the winch in newtons. Heavy things move slowly, light things fly.</summary>
+        /// <summary>Nominal pull of the winch in newtons - the force that hauls a car out of a ditch.</summary>
         internal static float PullNewtons
         {
             get => _pullNewtons?.Value ?? 12000f;
@@ -30,17 +29,12 @@ namespace Yoink.Config
         }
 
         /// <summary>
-        /// Guaranteed minimum acceleration in m/s^2. The design has no unstick fallback, so nothing may ever be
-        /// too heavy to move at all - below this the force is scaled up by the target's mass.
+        /// Reel-in rate cap along the rope, in m/s. A winch reels, it does not launch.
+        ///
+        /// Enforced by pulling less, never by overwriting the rigidbody's velocity - rescaling the whole velocity
+        /// vector looked equivalent and was not: it kept the direction of Unity's depenetration impulse while hiding
+        /// its size, and a load measured travelling AWAY at a steady 1.50 m/s jumped to 6.69 the moment pulling stopped.
         /// </summary>
-        internal static float MinAccel
-        {
-            get => _minAccel?.Value ?? 1.5f;
-            set { if (_minAccel != null) _minAccel.Value = value; }
-        }
-
-        /// <summary>Reel-in rate cap along the rope, in m/s. A winch reels, it does not launch. Enforced by
-        /// pulling less, never by overwriting the rigidbody's velocity.</summary>
         internal static float MaxSpeed
         {
             get => _maxSpeed?.Value ?? 1.5f;
@@ -74,7 +68,6 @@ namespace Yoink.Config
             switch (key)
             {
                 case "pull": PullNewtons = value; return true;
-                case "amin": MinAccel = value; return true;
                 case "vmax": MaxSpeed = value; return true;
                 case "range": HookRange = value; return true;
                 case "break": BreakDistance = value; return true;
@@ -86,8 +79,16 @@ namespace Yoink.Config
         /// <summary>Number of rope points in the verlet simulation.</summary>
         internal static int RopeSegments => _ropeSegments?.Value ?? 20;
 
-        /// <summary>What the winch costs on the shelf.</summary>
-        internal static float ShopPrice => _shopPrice?.Value ?? 500f;
+        /// <summary>
+        /// What the winch costs on the shelf. Settable at runtime so a price can be tried out without a rebuild,
+        /// but the shop listing reads it once when the item is registered - changing it mid-session moves the
+        /// preference, not the label on the shelf, and takes effect on the next load.
+        /// </summary>
+        internal static float ShopPrice
+        {
+            get => _shopPrice?.Value ?? 80f;
+            set { if (_shopPrice != null) _shopPrice.Value = value < 0f ? 0f : value; }
+        }
 
         /// <summary>Whether the rope collides with the world instead of hanging through it.</summary>
         internal static bool RopeCollision => _ropeCollision?.Value ?? true;
@@ -98,8 +99,6 @@ namespace Yoink.Config
 
             _pullNewtons = _cat.CreateEntry("PullNewtons", 12000f, "Pull force (N)",
                 "Nominal winch pull. Real mass applies, so a heavy vehicle moves slower than a bin.");
-            _minAccel = _cat.CreateEntry("MinAcceleration", 1.5f, "Minimum acceleration (m/s^2)",
-                "Floor that guarantees even the heaviest target moves. Set to 0 for pure newtons.");
             _maxSpeed = _cat.CreateEntry("MaxSpeed", 1.5f, "Maximum winch speed (m/s)",
                 "How fast the winch reels the load in along the rope. Other motion (falling, being pushed out of a wall) is not capped.");
             _hookRange = _cat.CreateEntry("HookRange", 15f, "Hook range (m)",
@@ -110,8 +109,8 @@ namespace Yoink.Config
                 "Reeling stops once the hooked point gets this close to the anchor.");
             _ropeSegments = _cat.CreateEntry("RopeSegments", 20, "Rope segments",
                 "Points in the rope simulation. More is smoother and slightly more expensive.");
-            _shopPrice = _cat.CreateEntry("ShopPrice", 500f, "Shop price ($)",
-                "What the winch costs in the shop. Read once when the item is registered.");
+            _shopPrice = _cat.CreateEntry("ShopPrice", 80f, "Shop price ($)",
+                "What the winch costs in the shop. Read once when the item is registered, so a change applies on the next load.");
             _ropeCollision = _cat.CreateEntry("RopeCollision", true, "Rope collides with the world",
                 "Rope slack rests on the ground instead of hanging through it. Costs a couple of short raycasts per frame while a hook is attached.");
         }
@@ -121,7 +120,6 @@ namespace Yoink.Config
         {
             CultureInfo inv = CultureInfo.InvariantCulture;
             return "pull=" + PullNewtons.ToString("F0", inv) + "N"
-                 + " aMin=" + MinAccel.ToString("F2", inv)
                  + " vMax=" + MaxSpeed.ToString("F2", inv)
                  + " range=" + HookRange.ToString("F1", inv)
                  + " break=" + BreakDistance.ToString("F1", inv)

@@ -82,10 +82,16 @@ namespace Yoink.Debugging
                         Say("info            - target, mass, distance, speed, tuning");
                         Say("give / equip    - put a winch in your inventory / hold it");
                         Say("force <newtons> - change pull force at runtime");
-                        Say("set <key> <val> - pull | amin | vmax | range | break | stop");
+                        Say("set <key> <val> - pull | vmax | range | break | stop");
                         Say("test [distance] - spawn a test vehicle N metres ahead");
                         Say("vm show           - where the held winch sits");
                         Say("vm move x y z     - nudge it (metres), vm turn x y z - rotate it");
+                        Say("cam             - cameras, layers and where the rope is anchored");
+                        break;
+
+                    case "cam":
+                        TestRig.DumpCamerasSoon();
+                        Say("camera dump goes to the log once the console closes (the game unequips while it is open).");
                         break;
 
                     case "hook":
@@ -162,7 +168,7 @@ namespace Yoink.Debugging
                         if (arg1 == null || arg2 == null || !float.TryParse(arg2, NumberStyles.Float, CultureInfo.InvariantCulture, out v)
                             || !Preferences.TrySet(arg1.ToLower(), v))
                         {
-                            Say("usage: yoink set <pull|amin|vmax|range|break|stop> <value>  (now: " + Preferences.Describe() + ")");
+                            Say("usage: yoink set <pull|vmax|range|break|stop> <value>  (now: " + Preferences.Describe() + ")");
                             break;
                         }
                         Say(Preferences.Describe());
@@ -215,6 +221,19 @@ namespace Yoink.Debugging
                             break;
                         }
 
+                        // Lifts the whole first-person rig, hands included. Separate from 'move', which shifts only
+                        // the tool inside the hand - raising the tool alone makes it float above the fingers.
+                        if (what == "rig" && parts.Length >= 6
+                            && float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out dx)
+                            && float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out dy)
+                            && float.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out dz))
+                        {
+                            Yoink.Item.WinchItem.RigOffset = Yoink.Item.WinchItem.RigOffset + new Vector3(dx, dy, dz);
+                            Say("rig offset " + Yoink.Item.WinchItem.RigOffset.ToString("F3")
+                                + " - watch the [Frame] lines in the log for where the muzzle lands.");
+                            break;
+                        }
+
                         if (what == "hand" && parts.Length >= 4)
                         {
                             Yoink.Item.WinchItem.PreferHand = parts[3].ToLower() == "on";
@@ -257,7 +276,7 @@ namespace Yoink.Debugging
                             break;
                         }
 
-                        Say("usage: yoink vm <pos|rot|muzzle> <x> <y> <z>  |  yoink vm scale <s>  |  yoink vm arms <on|off>");
+                        Say("usage: yoink vm <pos|rot|muzzle|rig> <x> <y> <z>  |  yoink vm scale <s>  |  yoink vm arms <on|off>");
                         Say(ViewmodelState());
                         break;
                     }

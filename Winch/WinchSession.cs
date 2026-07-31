@@ -394,13 +394,49 @@ namespace Yoink.Winch
         }
 
         /// <summary>Physics work: the pull, applied at the pivot so the load rotates as it comes free.</summary>
+        /// <summary>
+        /// The anchor the PHYSICS uses, which is deliberately not the one the rope is drawn from.
+        ///
+        /// The drawn anchor rides on the camera, and the camera bobs, snaps and turns faster than any winch could be
+        /// carried. Feeding that straight into the force model makes the anchor an infinite-mass energy source: every
+        /// head movement is a free tug on the load, which is one of the things that made light targets thrash. This
+        /// one chases the drawn anchor with a short time constant and a speed limit, and reports how fast it is
+        /// moving so closing speed can be measured in its frame rather than the world's.
+        /// </summary>
+        private static Vector3 _physicsAnchor;
+        private static Vector3 _physicsAnchorVelocity;
+        private static bool _physicsAnchorValid;
+
+        private const float AnchorFollowTime = 0.06f;   // seconds to close most of the gap to the drawn anchor
+        private const float AnchorMaxSpeed = 10f;       // m/s; a teleport must not become a whip-crack
+
+        private static void StepPhysicsAnchor(Vector3 drawn, float dt)
+        {
+            if (!_physicsAnchorValid || dt <= 0f)
+            {
+                _physicsAnchor = drawn;
+                _physicsAnchorVelocity = Vector3.zero;
+                _physicsAnchorValid = true;
+                return;
+            }
+
+            Vector3 step = (drawn - _physicsAnchor) * (1f - Mathf.Exp(-dt / AnchorFollowTime));
+            step = Vector3.ClampMagnitude(step, AnchorMaxSpeed * dt);
+
+            _physicsAnchor += step;
+            _physicsAnchorVelocity = step / dt;
+        }
+
         internal static void FixedTick()
         {
             if (!_pulling || _target == null || !_target.Alive)
             {
                 if (ReelRateSmoothed > 0f || Stalled) TrackRate(0f, false);
+                _physicsAnchorValid = false;   // a fresh hook starts from where the anchor actually is
                 return;
             }
+
+            StepPhysicsAnchor(_pullAnchor, Time.fixedDeltaTime);
 
             Rigidbody rb = _target.Rb;
 
@@ -414,7 +450,7 @@ namespace Yoink.Winch
             }
 
             float dist, along;
-            bool applied = PullPhysics.Apply(rb, _target.PivotWorld, _pullAnchor, out dist, out along);
+            bool applied = PullPhysics.Apply(rb, _target.PivotWorld, _physicsAnchor, _physicsAnchorVelocity, out dist, out along);
             TrackRate(along, dist > Preferences.StopDistance);
 
             if (!applied && dist > 0f && dist <= Preferences.StopDistance)
@@ -440,7 +476,11 @@ namespace Yoink.Winch
 
             Trace("dist=" + dist.ToString("F2", CultureInfo.InvariantCulture)
                 + " along=" + along.ToString("F2", CultureInfo.InvariantCulture)
-                + (applied ? "" : " (at cap, coasting)"));
+                + (applied ? "" : " (at cap, coasting)")
+#if DEBUG
+                + "  " + PullPhysics.DescribeLastStep()
+#endif
+                );
         }
 
         /// <summary>Tracks the rate without applying force - used when another machine owns the pull.</summary>
@@ -468,6 +508,27 @@ namespace Yoink.Winch
         {
             if (_target == null || !_target.Alive) return 0f;
             return Vector3.Distance(_target.PivotWorld, _pullAnchor);
+        }
+
+        /// <summary>Mass of the hooked target in kg, or 0 with nothing on the hook. For readouts.</summary>
+        internal static float TargetMass()
+        {
+            try { return _target != null && _target.Alive ? _target.Mass : 0f; }
+            catch { return 0f; }
+        }
+
+        /// <summary>How fast the hooked target is moving, in m/s. For readouts.</summary>
+        internal static float TargetSpeed()
+        {
+            try { return _target != null && _target.Alive ? _target.Rb.velocity.magnitude : 0f; }
+            catch { return 0f; }
+        }
+
+        /// <summary>Short label of what is on the hook, for a panel that has no room for the full status line.</summary>
+        internal static string TargetLabel()
+        {
+            try { return _target != null && _target.Alive ? _target.Label : "-"; }
+            catch { return "-"; }
         }
 
         internal static string StatusLine()

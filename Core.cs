@@ -81,6 +81,7 @@ namespace Yoink
 #if DEBUG
             Debugging.ConsoleRegistration.EnsureRegistered();
             Debugging.DebugConsolePatch.FlushToConsole();
+            Debugging.TestRig.Tick();
 #endif
 
             WinchItem.EnsureRegistered();
@@ -100,6 +101,10 @@ namespace Yoink
         public override void OnLateUpdate()
         {
             if (!_inWorld) return;
+#if DEBUG
+            WinchItem.DumpMuzzleLateOnce();
+            WinchItem.ReportFraming();
+#endif
             WinchSession.LateTick(Time.deltaTime);
         }
 
