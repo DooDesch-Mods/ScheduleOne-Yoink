@@ -6,10 +6,10 @@
 > case the game has no answer to: a van wedged between two walls, dropped through the world geometry, or
 > parked somewhere it can never drive out of.
 
-![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Game](https://img.shields.io/badge/game-Schedule%20I-purple)
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
-![Status](https://img.shields.io/badge/status-beta-yellow)
+![Status](https://img.shields.io/badge/status-working-brightgreen)
 
 ![Yoink in action: a car hauled in on the winch cable](https://raw.githubusercontent.com/DooDesch-Mods/ScheduleOne-Yoink/main/media/yoink.gif)
 

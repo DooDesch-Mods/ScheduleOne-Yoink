@@ -2,7 +2,7 @@
 
 All notable changes to Yoink are documented here. Format based on [Keep a Changelog](https://keepachangelog.com).
 
-## [0.3.0] - 2026-07-31
+## [1.0.0] - 2026-08-01
 
 First public build. A hand winch that hooks whatever you aimed at and drags it out.
 
