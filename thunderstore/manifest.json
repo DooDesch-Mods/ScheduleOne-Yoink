@@ -5,7 +5,7 @@
   "description": "A hand winch for Schedule I. Hook anything at the exact point you aimed at and reel it in - built for vehicles wedged where they can never drive out.",
   "dependencies": [
     "LavaGang-MelonLoader-0.7.3",
-    "ifBars-S1API_Forked-3.0.5"
+    "ifBars-S1API_Forked-3.1.1"
   ],
   "contributors": [
     "DooDesch"
