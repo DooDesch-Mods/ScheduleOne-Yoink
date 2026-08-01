@@ -62,7 +62,7 @@ namespace Yoink.Debugging
                 if (inv == null || !inv.EquippingEnabled) return;
 
                 var cam = PlayerSingleton<PlayerCamera>.Instance;
-                if (cam != null && cam.activeUIElementCount > 0) return;   // console still up
+                if (cam != null && cam.activeUIElements.Count > 0) return;   // console still up
 
                 for (int i = 0; i < inv.hotbarSlots.Count; i++)
                 {

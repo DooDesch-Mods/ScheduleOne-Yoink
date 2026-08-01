@@ -353,7 +353,7 @@ namespace Yoink.Winch
                 else
                 {
                     PlayerCamera pc = PlayerSingleton<PlayerCamera>.Instance;
-                    allowed = pc == null || pc.activeUIElementCount == 0;   // not while the phone or a menu is open
+                    allowed = pc == null || pc.activeUIElements.Count == 0;   // not while the phone or a menu is open
                 }
             }
             catch { allowed = false; }

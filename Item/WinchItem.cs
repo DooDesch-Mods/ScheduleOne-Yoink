@@ -989,7 +989,7 @@ namespace Yoink.Item
                 if (!Winch.Input.HookPressed()) return;
 
                 PlayerCamera cam = PlayerSingleton<PlayerCamera>.Instance;
-                if (cam != null && cam.activeUIElementCount > 0) return;
+                if (cam != null && cam.activeUIElements.Count > 0) return;
 
                 _nextClickAt = Time.unscaledTime + 0.25f;
 

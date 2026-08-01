@@ -263,7 +263,7 @@ namespace Yoink.Winch
         {
             try
             {
-                string n = npc.fullName;
+                string n = npc.FullName;
                 return string.IsNullOrEmpty(n) ? npc.gameObject.name : n;
             }
             catch { return "someone"; }
