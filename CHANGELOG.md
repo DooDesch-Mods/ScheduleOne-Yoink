@@ -2,6 +2,11 @@
 
 All notable changes to Yoink are documented here. Format based on [Keep a Changelog](https://keepachangelog.com).
 
+## [1.2.0] - 2026-08-01
+
+### Fixed
+- Works on Schedule I 0.4.6f11. Update S1API to 3.1.1 with it.
+
 ## [1.1.0] - 2026-08-01
 
 ### Added

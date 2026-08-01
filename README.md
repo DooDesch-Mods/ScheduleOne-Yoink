@@ -6,7 +6,7 @@
 > case the game has no answer to: a van wedged between two walls, dropped through the world geometry, or
 > parked somewhere it can never drive out of.
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.0-blue)
 ![Game](https://img.shields.io/badge/game-Schedule%20I-purple)
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
 ![Status](https://img.shields.io/badge/status-working-brightgreen)
@@ -87,7 +87,7 @@ Co-op is implemented and reviewed but has not been run with two players since th
 ## Requirements
 
 - [MelonLoader](https://melonwiki.xyz/) 0.7.3 or newer
-- [S1API](https://thunderstore.io/c/schedule-i/p/KaBooMa/S1API/)
+- [S1API](https://thunderstore.io/c/schedule-i/p/ifBars/S1API_Forked/) 3.1.1 or newer
 
 ## Credits
 

@@ -1,6 +1,6 @@
 {
   "name": "Yoink",
-  "version_number": "1.1.0",
+  "version_number": "1.2.0",
   "website_url": "https://github.com/DooDesch-Mods/ScheduleOne-Yoink",
   "description": "A hand winch for Schedule I. Hook anything at the exact point you aimed at and reel it in - built for vehicles wedged where they can never drive out.",
   "dependencies": [

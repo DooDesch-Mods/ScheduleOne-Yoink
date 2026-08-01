@@ -5,7 +5,7 @@ using Yoink.Item;
 using Yoink.Net;
 using Yoink.Winch;
 
-[assembly: MelonInfo(typeof(Yoink.Core), "Yoink", "1.1.0", "DooDesch", null)]
+[assembly: MelonInfo(typeof(Yoink.Core), "Yoink", "1.2.0", "DooDesch", null)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace Yoink
@@ -45,9 +45,9 @@ namespace Yoink
             catch (Exception e) { Log.Warning("[Core] co-op bus setup failed - single-player is unaffected: " + e.Message); }
 
 #if DEBUG
-            Log.Msg("Yoink v1.1.0 (DEBUG) - winch. Buy it in the hardware store, or type 'yoink help' in the console.");
+            Log.Msg("Yoink v1.2.0 (DEBUG) - winch. Buy it in the hardware store, or type 'yoink help' in the console.");
 #else
-            Log.Msg("Yoink v1.1.0 - winch.");
+            Log.Msg("Yoink v1.2.0 - winch.");
 #endif
         }
 
