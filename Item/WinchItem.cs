@@ -690,11 +690,21 @@ namespace Yoink.Item
         /// instantiated, not anything we hold a reference to, so it is looked up through PlayerInventory - which
         /// finally reports an equippable now that the definition uses the legacy equip mode.
         /// </summary>
+        // A MISS is as worth remembering as a hit. The positive cache below only helps while the winch is actually
+        // held; a player who does not own one never fills it, so the two recursive FindByName sweeps ran on every
+        // single frame, forever, looking for an object that does not exist. That was Yoink's entire idle cost.
+        // Re-checking a few times a second is plenty: the model can only appear as a result of an equip, and
+        // ForgetHeldModel() already clears this the moment the held item changes.
+        private const float MissRecheckSeconds = 0.25f;
+        private static float _nextHeldModelProbe;
+
         private static Transform HeldModel()
         {
             try
             {
                 if (_heldModel != null) return _heldModel;
+                if (Time.unscaledTime < _nextHeldModelProbe) return null;   // searched recently, still nothing
+                _nextHeldModelProbe = Time.unscaledTime + MissRecheckSeconds;
 
                 // Found by name in the two places it can live, rather than through PlayerInventory.equippable. That
                 // property is only filled on the legacy equip path, and the very first equip of a session can still
@@ -716,10 +726,12 @@ namespace Yoink.Item
             catch { return null; }
         }
 
-        /// <summary>Drops the cached lookup when the held item changes.</summary>
+        /// <summary>Drops the cached lookup when the held item changes. Also clears the miss backoff, so an equip
+        /// is picked up on the very next frame instead of up to a quarter second later.</summary>
         internal static void ForgetHeldModel()
         {
             _heldModel = null;
+            _nextHeldModelProbe = 0f;
         }
 
         private static GameObject _modelSource;      // parsed once, kept inactive as the thing we copy from
@@ -944,6 +956,9 @@ namespace Yoink.Item
                 RemoveViewmodel();
                 ForgetHeldModel();
             }
+            // Taking it OUT has to clear the lookup too, not just putting it away: the miss backoff in HeldModel
+            // would otherwise keep answering "not held" for up to a quarter second after the winch is in hand.
+            else if (!_wasEquipped && equipped) ForgetHeldModel();
             _wasEquipped = equipped;
 
             WinchAim.Tick(equipped, WinchSession.Hooked);

@@ -2,6 +2,13 @@
 
 All notable changes to Yoink are documented here. Format based on [Keep a Changelog](https://keepachangelog.com).
 
+## [1.2.1] - 2026-08-04
+
+### Fixed
+
+- Yoink stops costing frames when you are not using the winch. It was searching the whole viewmodel
+  and equip container for the winch model on every single frame, even for players who do not own one.
+
 ## [1.2.0] - 2026-08-01
 
 ### Fixed
