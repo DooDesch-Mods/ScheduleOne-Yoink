@@ -5,7 +5,7 @@ using Yoink.Item;
 using Yoink.Net;
 using Yoink.Winch;
 
-[assembly: MelonInfo(typeof(Yoink.Core), "Yoink", "1.2.1", "DooDesch", null)]
+[assembly: MelonInfo(typeof(Yoink.Core), "Yoink", DooDesch.ModVersion.Current, "DooDesch", "https://github.com/DooDesch-Mods/ScheduleOne-Yoink")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace Yoink
