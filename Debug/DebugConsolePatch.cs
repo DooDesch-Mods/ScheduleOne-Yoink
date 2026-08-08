@@ -342,7 +342,7 @@ namespace Yoink.Debugging
                         break;
                 }
             }
-            catch (Exception e) { Core.Log.Warning("[Yoink] console command failed: " + e.Message); }
+            catch (Exception e) { Core.Log.Warning("console command failed: " + e.Message); }
 
             return true;   // ours - swallow it either way
         }
@@ -364,7 +364,7 @@ namespace Yoink.Debugging
         internal static void Say(string line)
         {
             if (string.IsNullOrEmpty(line)) return;
-            Core.Log.Msg("[Yoink] " + line);
+            Core.Log.Msg("" + line);
             _pending.Add("[Yoink] " + line);
         }
 
