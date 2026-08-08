@@ -2,6 +2,8 @@
 
 > 🛟 **Need help or found a bug?** Get support at [support.doodesch.de/yoink](https://support.doodesch.de/yoink).
 
+📖 **Documentation:** [docs.doodesch.de/mods/yoink/](https://docs.doodesch.de/mods/yoink/)
+
 > A hand winch for Schedule I. Aim at anything with a rigidbody, fire the hook, and reel it in. Built for the
 > case the game has no answer to: a van wedged between two walls, dropped through the world geometry, or
 > parked somewhere it can never drive out of.
