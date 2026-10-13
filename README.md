@@ -12,6 +12,7 @@
 ![Game](https://img.shields.io/badge/game-Schedule%20I-purple)
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
 ![Status](https://img.shields.io/badge/status-working-brightgreen)
+[![Polyfill](https://polyfill.doomods.com/badge/yoink.svg)](https://polyfill.doomods.com/mod/yoink)
 
 ![Yoink in action: a car hauled in on the winch cable](https://raw.githubusercontent.com/DooDesch-Mods/ScheduleOne-Yoink/main/media/yoink.gif)
 
