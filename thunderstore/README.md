@@ -10,6 +10,7 @@
 ![Game](https://img.shields.io/badge/game-Schedule%20I-purple)
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
 ![Status](https://img.shields.io/badge/status-working-brightgreen)
+
 [![MLVScan Yoink.dll](https://mlvscan.com/attestations/att_35T1711xaUfgpcMclWjPyXJ3/badge.svg)](https://mlvscan.com/attestations/att_35T1711xaUfgpcMclWjPyXJ3)
 
 ![Yoink in action: a car hauled in on the winch cable](https://raw.githubusercontent.com/DooDesch-Mods/ScheduleOne-Yoink/main/media/yoink.gif)
