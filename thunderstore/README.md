@@ -10,6 +10,7 @@
 ![Game](https://img.shields.io/badge/game-Schedule%20I-purple)
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
 ![Status](https://img.shields.io/badge/status-working-brightgreen)
+[![Polyfill](https://polyfill.doomods.com/badge/yoink.svg)](https://polyfill.doomods.com/mod/yoink)
 
 [![MLVScan Yoink.dll](https://mlvscan.com/attestations/att_35T1711xaUfgpcMclWjPyXJ3/badge.svg)](https://mlvscan.com/attestations/att_35T1711xaUfgpcMclWjPyXJ3)
 
