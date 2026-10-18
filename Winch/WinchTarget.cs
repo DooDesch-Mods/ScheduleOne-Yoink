@@ -109,11 +109,8 @@ namespace Yoink.Winch
             try { if (col.GetComponentInParent<Player>() != null) { reason = "that is you"; return false; } }
             catch { }
 
-            // People come first, and before the rigidbody lookup on purpose. A standing NPC has no body to pull:
-            // its ragdoll rigidbodies are kinematic and its ragdoll colliders are triggers, so the only thing the
-            // ray can hit is the standing capsule and the only rigidbody in the hierarchy is one that refuses to
-            // move. Knocking them down is what CREATES something to hook, which is why it happens here rather than
-            // as a special case further down.
+            // A standing NPC has no ragdoll bodies yet. Knock them down before looking for a body so the hook
+            // attaches to a limb from the active ragdoll instead of the standing capsule.
             NPC npc = null;
             try { npc = col.GetComponentInParent<NPC>(); } catch { }
             if (npc != null) return TryAcquireNpc(npc, hit.point, ray.direction, out target, out reason);

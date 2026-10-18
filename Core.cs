@@ -34,9 +34,6 @@ namespace Yoink
 
             Preferences.Initialize();
 
-            try { HarmonyInstance.PatchAll(); }
-            catch (Exception e) { Log.Warning("[Core] Harmony patch failed: " + e.Message); }
-
             try
             {
                 QuestRpcPatches.Apply(HarmonyInstance);

@@ -59,7 +59,7 @@ namespace Yoink.Net
             {
                 case YoinkOp.PullStart:
                 {
-                    Entry e = Resolve(m.TargetId);
+                    Entry e = Resolve(m.TargetId, m.Anchor);
                     if (e == null) { Core.Log.Warning("[Net] host cannot resolve pull target '" + m.TargetId + "'."); return; }
 
                     e.PivotLocal = m.PivotLocal;
@@ -81,11 +81,6 @@ namespace Yoink.Net
                     }
 
                     if (e.Vehicle != null) VehicleGrip.TakeShared(e.Vehicle);
-
-                    // The client already knocked them down on its own screen for the sake of feeling instant. This
-                    // is the authoritative version: it runs the server rpc, so every machine in the session sees it
-                    // and the host is the one keeping them down.
-                    if (e.Npc != null) NpcGrip.TryHold(e.Npc, e.Root != null ? e.Root.TransformPoint(e.PivotLocal) : e.Anchor, e.Anchor);
 
                     _active[m.TargetId] = e;
                     break;
@@ -171,7 +166,7 @@ namespace Yoink.Net
         /// and the game's draggables. Everything else is scenery physics that exists per-machine anyway, which is
         /// why the design pulls those locally and never sends them.
         /// </summary>
-        private static Entry Resolve(string id)
+        private static Entry Resolve(string id, Vector3? pullAnchor = null)
         {
             if (string.IsNullOrEmpty(id) || id.Length < 3) return null;
 
@@ -187,8 +182,8 @@ namespace Yoink.Net
                 if (id[0] == 'D')
                 {
                     Draggable d = Il2Cpp.GUIDManager.GetObject<Draggable>(new Il2CppSystem.Guid(guid));
-                    if (d == null || d.Rigidbody == null) return null;
-                    return new Entry { Id = id, Rb = d.Rigidbody, Root = d.transform };
+                    if (d == null || d._rigidbody == null) return null;
+                    return new Entry { Id = id, Rb = d._rigidbody, Root = d.transform };
                 }
                 if (id[0] == 'N')
                 {
@@ -204,8 +199,21 @@ namespace Yoink.Net
                     NPC npc = Il2Cpp.GUIDManager.GetObject<NPC>(new Il2CppSystem.Guid(guid.Substring(0, split)));
                     if (npc == null) return null;
 
+                    // A client's local knockdown has not created bodies on the host. Create the authoritative
+                    // ragdoll before resolving its limb, then keep it down for the duration of the pull.
+                    if (pullAnchor.HasValue)
+                    {
+                        var center = npc.Avatar != null ? npc.Avatar.CenterPointTransform : null;
+                        Vector3 hitPoint = center != null ? center.position : npc.transform.position;
+                        NpcGrip.TryHold(npc, hitPoint, pullAnchor.Value);
+                    }
+
                     Rigidbody limb = NpcGrip.LimbAt(npc, limbIndex);
-                    if (limb == null) return null;
+                    if (limb == null)
+                    {
+                        if (pullAnchor.HasValue) NpcGrip.Release(npc);
+                        return null;
+                    }
 
                     return new Entry { Id = id, Rb = limb, Root = limb.transform, Npc = npc, Parts = NpcGrip.PartsOf(npc) };
                 }

@@ -40,8 +40,7 @@ namespace Yoink.Winch
         ///
         /// The limb matters: hooking a leg and hooking a shoulder drag a body very differently, and picking the
         /// nearest ragdoll rigidbody to the impact point is what makes the rope look attached to the place you
-        /// actually shot. It has to be read AFTER the ragdoll is active, because until then every one of those
-        /// rigidbodies is kinematic and its collider is a trigger.
+        /// actually shot. The game creates the ragdoll rigidbodies on knockdown, so read them only after it is active.
         /// </summary>
         internal static bool TryHook(NPC npc, Vector3 hitPoint, Vector3 impactDir,
                                      out Rigidbody limb, out int limbIndex, out string reason)
@@ -215,7 +214,7 @@ namespace Yoink.Winch
 
             try
             {
-                var rbs = npc.Avatar != null ? npc.Avatar.RagdollRBs : null;
+                var rbs = PartsOf(npc);
                 if (rbs == null) return false;
 
                 float best = float.MaxValue;
@@ -243,8 +242,17 @@ namespace Yoink.Winch
         /// </summary>
         internal static Il2CppReferenceArray<Rigidbody> PartsOf(NPC npc)
         {
-            try { return npc != null && npc.Avatar != null ? npc.Avatar.RagdollRBs : null; }
-            catch { return null; }
+            try
+            {
+                var avatar = npc != null ? npc.Avatar : null;
+                var ragdoll = avatar != null ? avatar.ActiveRagdoll : null;
+                return ragdoll != null ? ragdoll.Rigidbodies : null;
+            }
+            catch (Exception e)
+            {
+                Core.Log.Warning("[Grip] could not read ragdoll bodies: " + e.Message);
+                return null;
+            }
         }
 
         /// <summary>The limb an index refers to, for a pull that arrived over the wire.</summary>
@@ -252,7 +260,7 @@ namespace Yoink.Winch
         {
             try
             {
-                var rbs = npc != null && npc.Avatar != null ? npc.Avatar.RagdollRBs : null;
+                var rbs = PartsOf(npc);
                 if (rbs == null || index < 0 || index >= rbs.Length) return null;
                 return rbs[index];
             }
