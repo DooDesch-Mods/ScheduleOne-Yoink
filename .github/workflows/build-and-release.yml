@@ -380,7 +380,7 @@ jobs:
           repo: thunderstore.io
           namespace: DooDesch
           name: Yoink
-          description: Repair your wrecked RV in Schedule I - get the job from Mrs. Ming, pay Marco the mechanic, all guided by a tracked quest with a repair cinematic.
+          description: A hand winch for Schedule I. Hook anything at the exact point you aimed at and reel it in - built for vehicles wedged where they can never drive out.
           version: ${{ needs.build.outputs.version }}
           path: thunderstore-package
           deps: |

@@ -2,6 +2,13 @@
 
 All notable changes to Yoink are documented here. Format based on [Keep a Changelog](https://keepachangelog.com).
 
+## [1.2.2] - 2026-10-18
+
+### Fixed
+
+- People can be pulled with the winch again on Schedule I 0.4.7f12, including when another player starts the pull in co-op.
+- Movable objects can be pulled by other players in co-op again on Schedule I 0.4.7f12.
+
 ## [1.2.1] - 2026-08-04
 
 ### Fixed
