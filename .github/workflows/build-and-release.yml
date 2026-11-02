@@ -284,7 +284,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           generate_release_notes: true
-          files: release/Yoink.dll
+          files: |
+            release/Yoink.dll
+            Yoink_${{ needs.build.outputs.version }}.zip
           body: |
             ## Changes in ${{ needs.build.outputs.version }}
 
