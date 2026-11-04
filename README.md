@@ -4,6 +4,8 @@
 
 **Download:** [Nexus Mods](https://www.nexusmods.com/schedule1/mods/2377) · [Thunderstore](https://thunderstore.io/c/schedule-i/p/DooDesch/Yoink/) · [GitHub Releases](https://github.com/DooDesch-Mods/ScheduleOne-Yoink/releases)
 
+[![Discord](https://mods.doodesch.de/img/badge.svg)](https://mods.doodesch.de)
+
 📖 **Documentation:** [docs.doodesch.de/mods/yoink/](https://docs.doodesch.de/mods/yoink/)
 
 > A hand winch for Schedule I. Aim at anything with a rigidbody, fire the hook, and reel it in. Built for the
@@ -95,6 +97,12 @@ Co-op is implemented and reviewed but has not been run with two players since th
 
 - [MelonLoader](https://melonwiki.xyz/) 0.7.3 or newer
 - [S1API](https://thunderstore.io/c/schedule-i/p/ifBars/S1API_Forked/) 3.1.1 or newer
+
+## Community
+
+[![DooDesch Mods on Discord](https://mods.doodesch.de/img/card.svg)](https://mods.doodesch.de)
+
+Join the DooDesch Mods Discord: update pings, polls on what comes next, and playtests of new mods.
 
 ## Credits
 
