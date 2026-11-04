@@ -2,6 +2,8 @@
 
 > 🛟 **Need help or found a bug?** Get support at [support.doodesch.de/yoink](https://support.doodesch.de/yoink).
 
+**Download:** [Nexus Mods](https://www.nexusmods.com/schedule1/mods/2377) · [Thunderstore](https://thunderstore.io/c/schedule-i/p/DooDesch/Yoink/) · [GitHub Releases](https://github.com/DooDesch-Mods/ScheduleOne-Yoink/releases)
+
 📖 **Documentation:** [docs.doodesch.de/mods/yoink/](https://docs.doodesch.de/mods/yoink/)
 
 > A hand winch for Schedule I. Aim at anything with a rigidbody, fire the hook, and reel it in. Built for the
