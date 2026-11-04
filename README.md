@@ -4,8 +4,6 @@
 
 **Download:** [Nexus Mods](https://www.nexusmods.com/schedule1/mods/2377) · [Thunderstore](https://thunderstore.io/c/schedule-i/p/DooDesch/Yoink/) · [GitHub Releases](https://github.com/DooDesch-Mods/ScheduleOne-Yoink/releases)
 
-[![Discord](https://mods.doodesch.de/img/badge.svg)](https://mods.doodesch.de)
-
 📖 **Documentation:** [docs.doodesch.de/mods/yoink/](https://docs.doodesch.de/mods/yoink/)
 
 > A hand winch for Schedule I. Aim at anything with a rigidbody, fire the hook, and reel it in. Built for the
@@ -16,7 +14,7 @@
 ![Game](https://img.shields.io/badge/game-Schedule%20I-purple)
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
 ![Status](https://img.shields.io/badge/status-working-brightgreen)
-[![Polyfill](https://polyfill.doomods.com/badge/yoink.svg)](https://polyfill.doomods.com/mod/yoink)
+[![Discord](https://mods.doodesch.de/img/badge.svg)](https://mods.doodesch.de) [![Polyfill](https://polyfill.doomods.com/badge/yoink.svg)](https://polyfill.doomods.com/mod/yoink)
 
 [![MLVScan Yoink.dll](https://mlvscan.com/attestations/att_owGdm3qKSyCIu5FIY6WxcO45/badge.svg)](https://mlvscan.com/attestations/att_owGdm3qKSyCIu5FIY6WxcO45)
 
